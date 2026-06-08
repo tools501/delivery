@@ -147,20 +147,60 @@ toggleFormBtn.addEventListener('click', () => {
   }
 });
 
-function startSessionTimer() {
+function getTokenExpirationMs(token) {
+
+  try {
+    const payload = JSON.parse(
+      atob(
+        String(token || '')
+          .split('.')[1]
+          .replace(/-/g, '+')
+          .replace(/_/g, '/')
+      )
+    );
+
+    return Number(payload.exp) * 1000;
+
+  } catch (e) {
+    return 0;
+  }
+}
+
+function expireSession() {
+
+  sessionExpired = true;
+  clearInterval(sessionCountdownTimer);
+  stopVersionTimer();
+
+  document
+    .getElementById('sessionExpired')
+    .classList.remove('hidden');
+}
+
+function startSessionTimer(token) {
 
   clearTimeout(sessionTimer);
   clearTimeout(sessionExpireTimer);
   clearInterval(sessionCountdownTimer);
 
   sessionExpired = false;
-  sessionExpiresAt = Date.now() + 55 * 60 * 1000;
+  sessionExpiresAt =
+    getTokenExpirationMs(token) ||
+    Date.now() + 55 * 60 * 1000;
 
   document
     .getElementById('sessionWarning')
     .classList.add('hidden');
 
   updateSessionWarningText();
+
+  const remainingMs =
+    sessionExpiresAt - Date.now();
+
+  if (remainingMs <= 0) {
+    expireSession();
+    return;
+  }
 
   sessionTimer = setTimeout(() => {
 
@@ -175,19 +215,12 @@ function startSessionTimer() {
       1000
     );
 
-  }, 50 * 60 * 1000);
+  }, Math.max(0, remainingMs - 5 * 60 * 1000));
 
-  sessionExpireTimer = setTimeout(() => {
-
-    sessionExpired = true;
-    clearInterval(sessionCountdownTimer);
-    stopVersionTimer();
-
-    document
-      .getElementById('sessionExpired')
-      .classList.remove('hidden');
-
-  }, 55 * 60 * 1000);
+  sessionExpireTimer = setTimeout(
+    expireSession,
+    remainingMs
+  );
 }
 
 function formatSessionCountdown(ms) {
@@ -304,7 +337,7 @@ async function authenticateWithToken(
 
   currentUser = result.data.user;
 
-  startSessionTimer();
+  startSessionTimer(authToken);
 
   document.getElementById('userInfo')
     .innerText = currentUser.name;
