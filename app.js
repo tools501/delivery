@@ -1,5 +1,6 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbz7tPrVsKyZ85-ga8iplEC7hZ-Uhg6cUIGjnEkO-aN6IAhtrrRyzU7CT8xlKrhInyal/exec';
 const SHARED_AUTH_TOKEN_KEY = 'tools501_google_id_token';
+const HUB_URL = '/hub/';
 
 let authToken = null;
 let currentUser = null;
@@ -175,6 +176,20 @@ function expireSession() {
   document
     .getElementById('sessionExpired')
     .classList.remove('hidden');
+}
+
+function renewSession() {
+
+  authToken = null;
+  sessionExpired = true;
+
+  clearTimeout(sessionTimer);
+  clearTimeout(sessionExpireTimer);
+  clearInterval(sessionCountdownTimer);
+  stopVersionTimer();
+  clearSharedAuthToken();
+
+  window.location.href = HUB_URL;
 }
 
 function startSessionTimer(token) {
@@ -2175,14 +2190,14 @@ document
   .getElementById('reloadSessionBtn')
   .addEventListener('click', () => {
 
-    location.reload();
+    renewSession();
   });
 
 document
   .getElementById('reloadWarningBtn')
   .addEventListener('click', () => {
 
-    location.reload();
+    renewSession();
   });
 
 trySharedSession();
