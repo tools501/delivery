@@ -1,4 +1,5 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbz7tPrVsKyZ85-ga8iplEC7hZ-Uhg6cUIGjnEkO-aN6IAhtrrRyzU7CT8xlKrhInyal/exec';
+const SHARED_AUTH_TOKEN_KEY = 'tools501_google_id_token';
 
 let authToken = null;
 let currentUser = null;
@@ -214,7 +215,47 @@ function updateSessionWarningText() {
 
 async function handleCredentialResponse(response) {
 
-  authToken = response.credential;
+  await authenticateWithToken(
+    response.credential,
+    {
+      persist: true
+    }
+  );
+}
+
+function getSharedAuthToken() {
+
+  try {
+    return sessionStorage.getItem(SHARED_AUTH_TOKEN_KEY);
+  } catch (e) {
+    return null;
+  }
+}
+
+function setSharedAuthToken(token) {
+
+  try {
+    sessionStorage.setItem(SHARED_AUTH_TOKEN_KEY, token);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+function clearSharedAuthToken() {
+
+  try {
+    sessionStorage.removeItem(SHARED_AUTH_TOKEN_KEY);
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+async function authenticateWithToken(
+  token,
+  options = {}
+) {
+
+  authToken = token;
 
   document.getElementById('loginBlock')
     .classList.add('hidden');
@@ -222,12 +263,18 @@ async function handleCredentialResponse(response) {
   document.getElementById('loader')
     .classList.remove('hidden');
 
+  document.getElementById('sessionExpired')
+    .classList.add('hidden');
+
   let result;
 
   try {
     result = await api('auth');
   } catch (e) {
     console.error(e);
+
+    authToken = null;
+    clearSharedAuthToken();
 
     document.getElementById('loader')
       .classList.add('hidden');
@@ -239,6 +286,9 @@ async function handleCredentialResponse(response) {
 
   if (!result.success) {
 
+    authToken = null;
+    clearSharedAuthToken();
+
     document.getElementById('loader')
       .classList.add('hidden');
 
@@ -246,6 +296,10 @@ async function handleCredentialResponse(response) {
       .classList.remove('hidden');
 
     return;
+  }
+
+  if (options.persist) {
+    setSharedAuthToken(token);
   }
 
   currentUser = result.data.user;
@@ -272,6 +326,17 @@ async function handleCredentialResponse(response) {
 
   document.getElementById('app')
     .classList.remove('hidden');
+}
+
+async function trySharedSession() {
+
+  const token = getSharedAuthToken();
+
+  if (!token) {
+    return;
+  }
+
+  await authenticateWithToken(token);
 }
 
 async function api(
@@ -335,6 +400,9 @@ function showLoginScreen() {
     .classList.add('hidden');
 
   document.getElementById('deniedScreen')
+    .classList.add('hidden');
+
+  document.getElementById('sessionExpired')
     .classList.add('hidden');
 
   document.getElementById('loginBlock')
@@ -2083,3 +2151,5 @@ document
 
     location.reload();
   });
+
+trySharedSession();
