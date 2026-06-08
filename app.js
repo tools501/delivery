@@ -2120,6 +2120,12 @@ function renderShipments(items) {
 document.getElementById('createBtn')
   .addEventListener('click', createShipment);
 
+document
+  .getElementById('hubBtn')
+  .addEventListener('click', () => {
+    window.location.href = HUB_URL;
+  });
+
 loadBtn.addEventListener('click', reloadAppData);
 
 addDashboardFilterBtn.addEventListener('click', () => {
