@@ -429,6 +429,12 @@ textarea:focus {
   stroke-width: 3.5;
 }
 
+.id-icon path {
+  stroke: #292929;
+  stroke-linecap: square;
+  stroke-width: 4;
+}
+
 .card-summary {
 
   display: flex;
