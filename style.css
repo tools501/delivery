@@ -824,8 +824,6 @@ textarea:focus {
   width: fit-content;
   max-width: 100%;
 
-  margin-top: 10px;
-
   color: #555;
 
   font-size: 13px;
@@ -833,6 +831,68 @@ textarea:focus {
 
   cursor: pointer;
   user-select: none;
+}
+
+.dashboard-secondary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  margin-top: 10px;
+}
+
+.dashboard-export-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  min-height: 36px;
+  padding: 8px 12px;
+
+  color: #245a38;
+
+  background: #f7fbf8;
+
+  border: 1px solid #d8e8dc;
+  border-radius: 12px;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 1px 2px rgba(0, 0, 0, 0.035);
+
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    transform 0.2s,
+    box-shadow 0.2s;
+}
+
+.dashboard-export-btn:hover {
+  background: #eff8f1;
+  border-color: #c7decf;
+
+  transform: translateY(-1px);
+}
+
+.dashboard-export-icon {
+  display: grid;
+  place-items: center;
+
+  width: 28px;
+  height: 22px;
+
+  color: white;
+  background: #3f8f5a;
+
+  border-radius: 6px;
+
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0;
 }
 
 .dashboard-zero-toggle input {
@@ -1833,9 +1893,22 @@ html {
   }
 
   .dashboard-zero-toggle {
-    margin-top: 8px;
-
     font-size: 12px;
+  }
+
+  .dashboard-secondary-actions {
+    margin-top: 8px;
+  }
+
+  .dashboard-export-btn {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 12px;
+  }
+
+  .dashboard-export-icon {
+    width: 26px;
+    height: 20px;
   }
 
   .dashboard-bars.is-scrollable {
