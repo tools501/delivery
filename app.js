@@ -2286,7 +2286,19 @@ function renderShipments(items) {
           <div class="card-summary-top">
 
             <div class="summary-item card-id">
-              ID: ${escapeHtml(item.id)}
+              <span class="item-icon id-icon" aria-hidden="true">
+                <svg viewBox="0 0 64 64" focusable="false">
+                  <path d="M12 14v30"></path>
+                  <path d="M20 14v30"></path>
+                  <path d="M30 14v30"></path>
+                  <path d="M42 14v30"></path>
+                  <path d="M52 14v30"></path>
+                  <path d="M12 52h8"></path>
+                  <path d="M30 52h12"></path>
+                  <path d="M52 52h4"></path>
+                </svg>
+              </span>
+              ${escapeHtml(item.id)}
             </div>
       
             <div class="summary-item card-status-text">
