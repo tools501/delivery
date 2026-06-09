@@ -1851,6 +1851,19 @@ function getCardStatusClass(status) {
   }
 }
 
+function getCardStatusBadgeClass(status) {
+
+  if (status === SHIPMENT_STATUSES[1]) {
+    return 'card-status-badge-done';
+  }
+
+  if (status === SHIPMENT_STATUSES[2]) {
+    return 'card-status-badge-failed';
+  }
+
+  return '';
+}
+
 function renderDetailsView(item) {
 
   const editButton = canEditShipment(item)
@@ -2300,7 +2313,7 @@ function renderShipments(items) {
               ${escapeHtml(item.id)}
             </div>
       
-            <div class="summary-item card-status-text ${getStatusClass(item.status)}">
+            <div class="summary-item card-status-text ${getCardStatusBadgeClass(item.status)}">
               ${escapeHtml(item.status)}
             </div>
 
