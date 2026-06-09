@@ -420,11 +420,11 @@ textarea:focus {
 }
 
 .card-status-badge-done::before {
-  background: rgba(80, 151, 95, 0.16);
+  background: rgba(80, 151, 95, 0.28);
 }
 
 .card-status-badge-failed::before {
-  background: rgba(194, 86, 86, 0.16);
+  background: rgba(194, 86, 86, 0.28);
 }
 
 .item-icon {
