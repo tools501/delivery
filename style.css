@@ -379,6 +379,11 @@ textarea:focus {
 }
 
 .card-destination {
+  width: 100%;
+  min-width: 0;
+}
+
+.card-id {
   flex: 1 1 auto;
   min-width: 0;
 }
@@ -427,9 +432,9 @@ textarea:focus {
 .card-summary {
 
   display: flex;
+  flex-direction: column;
 
-  align-items: center;
-  justify-content: space-between;
+  align-items: stretch;
 
   flex-wrap: nowrap;
 
@@ -444,6 +449,15 @@ textarea:focus {
   line-height: 1.45;
 
   color: #222;
+}
+
+.card-summary-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  min-width: 0;
 }
 
 .card-date {
