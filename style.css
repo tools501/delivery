@@ -383,6 +383,8 @@ textarea:focus {
 }
 
 .card-status-text {
+  position: relative;
+
   flex: 0 0 auto;
 
   max-width: none;
@@ -391,16 +393,31 @@ textarea:focus {
 
   text-overflow: clip;
 
-  padding: 3px 9px;
+  padding: 2px 8px;
 
-  border-radius: 999px;
+  color: #222;
+
+  border-radius: 7px;
+
+  isolation: isolate;
 }
 
-.card-status-text.status-success {
+.card-status-text::before {
+  content: '';
+
+  position: absolute;
+  inset: 2px 0;
+
+  z-index: -1;
+
+  border-radius: 6px;
+}
+
+.card-status-badge-done::before {
   background: rgba(80, 151, 95, 0.16);
 }
 
-.card-status-text.status-danger {
+.card-status-badge-failed::before {
   background: rgba(194, 86, 86, 0.16);
 }
 
