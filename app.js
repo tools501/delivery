@@ -1448,24 +1448,30 @@ function buildDashboardExportRows(items, breakdown) {
 
   const groupLabel =
     getDashboardFilterLabel(dashboardGroupBy.value);
+  const filters = getDashboardFilterSummaryRows();
+  const period =
+    `${formatDashboardExportDate(dashboardFrom.value)} - ${formatDashboardExportDate(dashboardTo.value)}`;
 
   return [
-    ['Період від', formatDashboardExportDate(dashboardFrom.value)],
-    ['Період до', formatDashboardExportDate(dashboardTo.value)],
+    ['Період', period],
     ['Групування', groupLabel],
-    ['Загальна кількість', items.length],
+    [
+      'Фільтри',
+      filters.length
+        ? filters
+            .map(filter => `${filter[0]} = ${filter[1]}`)
+            .join('; ')
+        : 'Без фільтрів'
+    ],
     ['Показувати нульові', dashboardShowZeroValues.checked ? 'Так' : 'Ні'],
     [],
-    ['Фільтри'],
-    ['Параметр', 'Значення'],
-    ...getDashboardFilterSummaryRows(),
-    [],
-    ['Результат'],
     [groupLabel, 'Кількість'],
     ...breakdown.map(item => [
       item.label,
       item.count
-    ])
+    ]),
+    [],
+    ['Всього', items.length]
   ];
 }
 
@@ -1517,7 +1523,7 @@ function exportDashboardToExcel() {
   XLSX.utils.book_append_sheet(
     workbook,
     worksheet,
-    'Dashboard'
+    'Статистика'
   );
 
   XLSX.writeFile(
