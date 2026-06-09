@@ -2282,6 +2282,18 @@ function renderShipments(items) {
       <div class="card-main">
 
         <div class="card-summary">
+
+          <div class="card-summary-top">
+
+            <div class="summary-item card-id">
+              ID: ${escapeHtml(item.id)}
+            </div>
+      
+            <div class="summary-item card-status-text">
+              ${escapeHtml(item.status)}
+            </div>
+
+          </div>
       
           <div class="summary-item card-destination">
             <span class="item-icon" aria-hidden="true">
@@ -2293,10 +2305,6 @@ function renderShipments(items) {
               </svg>
             </span>
             ${escapeHtml(item.destination)}
-          </div>
-      
-          <div class="summary-item card-status-text">
-            ${escapeHtml(item.status)}
           </div>
       
         </div>
