@@ -100,6 +100,41 @@ const dashboardGroupBy =
 const dashboardShowZeroValues =
   document.getElementById('dashboardShowZeroValues');
 
+const dashboardSecondaryActions =
+  document.createElement('div');
+
+const dashboardZeroToggle =
+  dashboardShowZeroValues.closest('.dashboard-zero-toggle');
+
+dashboardSecondaryActions.className =
+  'dashboard-secondary-actions';
+
+dashboardZeroToggle.parentNode.insertBefore(
+  dashboardSecondaryActions,
+  dashboardZeroToggle
+);
+
+dashboardSecondaryActions.appendChild(
+  dashboardZeroToggle
+);
+
+const exportDashboardBtn =
+  document.createElement('button');
+
+exportDashboardBtn.id = 'exportDashboardBtn';
+exportDashboardBtn.className = 'dashboard-export-btn';
+exportDashboardBtn.type = 'button';
+exportDashboardBtn.innerHTML = `
+  <span class="dashboard-export-icon" aria-hidden="true">
+    XLS
+  </span>
+  <span>Excel</span>
+`;
+
+dashboardSecondaryActions.appendChild(
+  exportDashboardBtn
+);
+
 const addDashboardFilterBtn =
   document.getElementById('addDashboardFilterBtn');
 
@@ -1381,6 +1416,116 @@ function clearDashboardListFilter() {
   renderVisibleShipments();
 }
 
+function formatDashboardExportDate(value) {
+
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(`${value}T00:00:00`);
+
+  if (isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('uk-UA', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(date);
+}
+
+function getDashboardFilterSummaryRows() {
+
+  return getDashboardRawFilters()
+    .map(filter => [
+      getDashboardFilterLabel(filter.key),
+      filter.value
+    ]);
+}
+
+function buildDashboardExportRows(items, breakdown) {
+
+  const groupLabel =
+    getDashboardFilterLabel(dashboardGroupBy.value);
+
+  return [
+    ['Період від', formatDashboardExportDate(dashboardFrom.value)],
+    ['Період до', formatDashboardExportDate(dashboardTo.value)],
+    ['Групування', groupLabel],
+    ['Загальна кількість', items.length],
+    ['Показувати нульові', dashboardShowZeroValues.checked ? 'Так' : 'Ні'],
+    [],
+    ['Фільтри'],
+    ['Параметр', 'Значення'],
+    ...getDashboardFilterSummaryRows(),
+    [],
+    ['Результат'],
+    [groupLabel, 'Кількість'],
+    ...breakdown.map(item => [
+      item.label,
+      item.count
+    ])
+  ];
+}
+
+function getDashboardExportFileName() {
+
+  const date = new Date();
+  const stamp = [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+    String(date.getHours()).padStart(2, '0'),
+    String(date.getMinutes()).padStart(2, '0')
+  ].join('');
+
+  return `dashboard-${stamp}.xlsx`;
+}
+
+function exportDashboardToExcel() {
+
+  if (typeof XLSX === 'undefined') {
+    showToast('Не вдалося завантажити Excel');
+    return;
+  }
+
+  const items = filterDashboardShipments();
+
+  if (!items) {
+    return;
+  }
+
+  const breakdown = getDashboardBreakdown(items);
+  const rows = buildDashboardExportRows(
+    items,
+    breakdown
+  );
+  const worksheet = XLSX.utils.aoa_to_sheet(rows);
+
+  worksheet['!cols'] = [
+    {
+      wch: 28
+    },
+    {
+      wch: 22
+    }
+  ];
+
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    worksheet,
+    'Dashboard'
+  );
+
+  XLSX.writeFile(
+    workbook,
+    getDashboardExportFileName()
+  );
+}
+
 function getDashboardBreakdown(items) {
 
   const groupKey = dashboardGroupBy.value;
@@ -2157,6 +2302,11 @@ dashboardShowZeroValues.addEventListener('change', () => {
   syncDashboardControls();
   renderDashboard();
 });
+
+exportDashboardBtn.addEventListener(
+  'click',
+  exportDashboardToExcel
+);
 
 clearListFilterBtn.addEventListener('click', clearDashboardListFilter);
 
