@@ -190,17 +190,11 @@ button {
 }
 
 .card-status-done {
-  background: #eef8f1;
-
-  box-shadow:
-    0 0 0 1px rgba(79, 138, 91, 0.16) inset;
+  background: white;
 }
 
 .card-status-failed {
-  background: #fff0f0;
-
-  box-shadow:
-    0 0 0 1px rgba(184, 92, 92, 0.16) inset;
+  background: white;
 }
 
 .card:hover {
@@ -395,9 +389,19 @@ textarea:focus {
 
   overflow: visible;
 
-  color: #222;
-
   text-overflow: clip;
+
+  padding: 3px 9px;
+
+  border-radius: 999px;
+}
+
+.card-status-text.status-success {
+  background: rgba(80, 151, 95, 0.16);
+}
+
+.card-status-text.status-danger {
+  background: rgba(194, 86, 86, 0.16);
 }
 
 .item-icon {
