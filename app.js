@@ -2268,8 +2268,7 @@ function renderShipments(items) {
     const div = document.createElement('div');
 
     div.className = [
-      'card',
-      getCardStatusClass(item.status)
+      'card'
     ]
       .filter(Boolean)
       .join(' ');
@@ -2301,7 +2300,7 @@ function renderShipments(items) {
               ${escapeHtml(item.id)}
             </div>
       
-            <div class="summary-item card-status-text">
+            <div class="summary-item card-status-text ${getStatusClass(item.status)}">
               ${escapeHtml(item.status)}
             </div>
 
