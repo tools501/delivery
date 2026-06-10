@@ -319,6 +319,12 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 0;
+}
+
+.edit-date-time-field input {
+  width: 100%;
+  min-width: 0;
 }
 
 .edit-date-time-field span {
@@ -1915,7 +1921,8 @@ html {
   }
 
   .edit-date-time-row {
-    grid-template-columns: 1fr 0.82fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+    gap: 8px;
   }
 
   .edit-date-time-field {
@@ -1969,7 +1976,7 @@ html {
   }
 
   .container {
-    padding: 16px;
+    padding: 8px 16px 16px;
   }
 
   #userInfo {
