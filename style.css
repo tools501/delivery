@@ -1918,6 +1918,46 @@ html {
     padding: 28px;
   }
 
+  .two-factor-card {
+    max-width: 320px;
+    gap: 14px;
+    padding: 24px;
+    border-radius: 18px;
+  }
+
+  .two-factor-title {
+    font-size: 19px;
+  }
+
+  .two-factor-code {
+    min-height: 44px;
+  }
+
+  .two-factor-submit,
+  .two-factor-cancel {
+    width: auto;
+    min-width: 0;
+    min-height: 38px;
+    padding: 8px 12px;
+  }
+
+  .two-factor-submit {
+    flex: 1.12;
+  }
+
+  .two-factor-cancel {
+    flex: 0.88;
+  }
+
+  .two-factor-card {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .two-factor-title,
+  .two-factor-code {
+    grid-column: 1 / -1;
+  }
+
   .login-logo {
     font-size: 28px;
   }
