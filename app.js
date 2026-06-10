@@ -1,4 +1,5 @@
 const API_URL = 'https://script.google.com/macros/s/AKfycbz7tPrVsKyZ85-ga8iplEC7hZ-Uhg6cUIGjnEkO-aN6IAhtrrRyzU7CT8xlKrhInyal/exec';
+const HUB_API_URL = 'https://script.google.com/macros/s/AKfycbyAHpUfM1RrPJbamCVcc5rGhUgRKoLRKSULBGnCNGLyCSaFU5lp7SX2Ge1Wwv9YEV5-Sg/exec';
 const SHARED_AUTH_TOKEN_KEY = 'tools501_google_id_token';
 const HUB_URL = '/hub/';
 
@@ -9,6 +10,7 @@ let sessionExpireTimer = null;
 let sessionCountdownTimer = null;
 let sessionExpiresAt = 0;
 let sessionExpired = false;
+let pendingTwoFactorAuth = null;
 let editingShipmentId = null;
 let versionTimer = null;
 let lastKnownShipmentsVersion = '';
@@ -333,6 +335,178 @@ function clearSharedAuthToken() {
   }
 }
 
+async function hubApi(
+  action,
+  data = {},
+  token = authToken
+) {
+
+  const formData = new URLSearchParams();
+
+  formData.append(
+    'payload',
+    JSON.stringify({
+      token,
+      action,
+      data
+    })
+  );
+
+  const controller = new AbortController();
+  const timeout = setTimeout(
+    () => controller.abort(),
+    API_TIMEOUT_MS
+  );
+  let response;
+
+  try {
+    response = await fetch(HUB_API_URL, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  return response.json();
+}
+
+function showTwoFactorScreen(token, options) {
+
+  pendingTwoFactorAuth = {
+    token,
+    options
+  };
+
+  document.getElementById('loader')
+    .classList.add('hidden');
+
+  document.getElementById('loginBlock')
+    .classList.add('hidden');
+
+  document.getElementById('deniedScreen')
+    .classList.add('hidden');
+
+  document.getElementById('twoFactorCode').value = '';
+
+  document.getElementById('twoFactorBlock')
+    .classList.remove('hidden');
+
+  document.getElementById('twoFactorCode')
+    .focus();
+}
+
+function hideTwoFactorScreen() {
+
+  document.getElementById('twoFactorBlock')
+    .classList.add('hidden');
+}
+
+async function ensureTwoFactorAccess(token, options) {
+
+  const result = await hubApi(
+    'check2fa',
+    {},
+    token
+  );
+
+  if (!result.success) {
+    throw new Error(result.error || 'TWO_FACTOR_CHECK_FAILED');
+  }
+
+  const twoFactor =
+    result.data && result.data.twoFactor;
+
+  if (
+    !twoFactor ||
+    !twoFactor.required
+  ) {
+    return true;
+  }
+
+  if (twoFactor.setupRequired) {
+    if (options.persist) {
+      setSharedAuthToken(token);
+    }
+
+    window.location.href = HUB_URL;
+    return false;
+  }
+
+  showTwoFactorScreen(token, options);
+  return false;
+}
+
+async function submitTwoFactorCode() {
+
+  const pending = pendingTwoFactorAuth;
+  const code =
+    document.getElementById('twoFactorCode').value.trim();
+
+  if (!pending) {
+    return;
+  }
+
+  if (!/^\d{6}$/.test(code)) {
+    showToast('Введіть 6 цифр');
+    return;
+  }
+
+  document.getElementById('twoFactorSubmitBtn')
+    .classList.add('loading');
+
+  try {
+    const result = await hubApi(
+      'verify2faGate',
+      {
+        code
+      },
+      pending.token
+    );
+
+    if (!result.success) {
+      showToast(
+        result.error === 'TWO_FACTOR_INVALID'
+          ? 'Невірний код'
+          : 'Не вдалося перевірити 2FA'
+      );
+      return;
+    }
+
+    const resume = pendingTwoFactorAuth;
+
+    pendingTwoFactorAuth = null;
+    hideTwoFactorScreen();
+
+    await authenticateWithToken(
+      resume.token,
+      {
+        ...resume.options,
+        skipTwoFactor: true
+      }
+    );
+
+  } catch (e) {
+    console.error(e);
+    showToast(
+      getRequestErrorMessage('Не вдалося перевірити 2FA')
+    );
+  } finally {
+    document.getElementById('twoFactorSubmitBtn')
+      .classList.remove('loading');
+  }
+}
+
+function cancelTwoFactor() {
+
+  pendingTwoFactorAuth = null;
+  authToken = null;
+  clearSharedAuthToken();
+  hideTwoFactorScreen();
+  showLoginScreen();
+}
+
 async function authenticateWithToken(
   token,
   options = {}
@@ -348,6 +522,36 @@ async function authenticateWithToken(
 
   document.getElementById('sessionExpired')
     .classList.add('hidden');
+
+  hideTwoFactorScreen();
+
+  try {
+    if (!options.skipTwoFactor) {
+      const canContinue = await ensureTwoFactorAccess(
+        token,
+        options
+      );
+
+      if (!canContinue) {
+        return;
+      }
+    }
+  } catch (e) {
+    console.error(e);
+
+    authToken = null;
+    clearSharedAuthToken();
+
+    document.getElementById('loader')
+      .classList.add('hidden');
+
+    showLoginScreen();
+    showToast(
+      getRequestErrorMessage('Не вдалося перевірити 2FA')
+    );
+
+    return;
+  }
 
   let result;
 
@@ -478,6 +682,8 @@ function showLoginScreen() {
 
   document.getElementById('app')
     .classList.add('hidden');
+
+  hideTwoFactorScreen();
 
   document.getElementById('loader')
     .classList.add('hidden');
@@ -2407,6 +2613,22 @@ function renderShipments(items) {
 
 document.getElementById('createBtn')
   .addEventListener('click', createShipment);
+
+document
+  .getElementById('twoFactorSubmitBtn')
+  .addEventListener('click', submitTwoFactorCode);
+
+document
+  .getElementById('twoFactorCancelBtn')
+  .addEventListener('click', cancelTwoFactor);
+
+document
+  .getElementById('twoFactorCode')
+  .addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      submitTwoFactorCode();
+    }
+  });
 
 document
   .getElementById('hubBtn')
