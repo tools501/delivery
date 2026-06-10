@@ -143,9 +143,6 @@ const addDashboardFilterBtn =
 const resetDashboardBtn =
   document.getElementById('resetDashboardBtn');
 
-const buildDashboardBtn =
-  document.getElementById('buildDashboardBtn');
-
 const listFilterNotice =
   document.getElementById('listFilterNotice');
 
@@ -2652,11 +2649,15 @@ resetDashboardBtn.addEventListener('click', () => {
   renderDashboard();
 });
 
-buildDashboardBtn.addEventListener('click', renderDashboard);
+dashboardFrom.addEventListener('change', () => {
+  syncDashboardControls();
+  renderDashboard();
+});
 
-dashboardFrom.addEventListener('change', syncDashboardControls);
-
-dashboardTo.addEventListener('change', syncDashboardControls);
+dashboardTo.addEventListener('change', () => {
+  syncDashboardControls();
+  renderDashboard();
+});
 
 dashboardGroupBy.addEventListener('change', () => {
   syncDashboardControls();
