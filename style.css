@@ -578,6 +578,69 @@ textarea:focus {
   justify-content: center;
 }
 
+.two-factor-screen {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.two-factor-card {
+  display: grid;
+  gap: 16px;
+  justify-items: center;
+  width: 100%;
+  max-width: 360px;
+  padding: 30px;
+  border: 1px solid #ececec;
+  border-radius: 20px;
+  background: white;
+  box-shadow:
+    0 1px 6px rgba(0,0,0,0.03);
+}
+
+.two-factor-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: #181818;
+}
+
+.two-factor-code {
+  width: 160px;
+  min-height: 46px;
+  padding: 8px 12px;
+  border: 1px solid #d6d6d6;
+  border-radius: 14px;
+  background: #fbfbfb;
+  color: #181818;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  text-align: center;
+}
+
+.two-factor-submit,
+.two-factor-cancel {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.two-factor-submit {
+  border: 1px solid #d6d6d6;
+  background: #111;
+  color: white;
+}
+
+.two-factor-cancel {
+  border: 1px solid #d6d6d6;
+  background: #fbfbfb;
+  color: #222;
+}
+
 .loader-boxes {
   display: flex;
   gap: 8px;
@@ -1526,7 +1589,8 @@ html {
 }
 
 #createBtn.loading::after,
-.details-action.loading::after {
+.details-action.loading::after,
+.two-factor-submit.loading::after {
 
   content: '';
 
@@ -1551,6 +1615,12 @@ html {
 }
 
 .details-action.loading {
+  pointer-events: none;
+  color: transparent;
+  position: relative;
+}
+
+.two-factor-submit.loading {
   pointer-events: none;
   color: transparent;
   position: relative;
