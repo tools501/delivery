@@ -774,10 +774,14 @@ textarea:focus {
 
 .dashboard-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.35fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 
   margin-top: 10px;
+}
+
+.dashboard-build-btn {
+  display: none;
 }
 
 .dashboard-build-btn {
@@ -1993,7 +1997,7 @@ html {
   }
 
   .dashboard-build-btn {
-    grid-column: 1 / -1;
+    display: none;
     min-height: 34px;
     padding: 7px 12px;
   }
