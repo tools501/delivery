@@ -1935,22 +1935,15 @@ html {
 
   .two-factor-submit,
   .two-factor-cancel {
-    width: auto;
-    min-width: 0;
+    width: 118px;
     min-height: 38px;
     padding: 8px 12px;
   }
 
-  .two-factor-submit {
-    flex: 1.12;
-  }
-
-  .two-factor-cancel {
-    flex: 0.88;
-  }
-
   .two-factor-card {
     grid-template-columns: 1fr 1fr;
+    column-gap: 10px;
+    justify-content: center;
   }
 
   .two-factor-title,
