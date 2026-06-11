@@ -47,7 +47,7 @@ let uiLabels = null;
 const SHIPMENT_STATUSES = [
   'Нова',
   'Виконано',
-  'Не виконано'
+  'Невиконано'
 ];
 
 const DEFAULT_SHIPMENT_STATUS = 'Нова';
@@ -2031,7 +2031,7 @@ function getStatusClass(status) {
     case 'Нова':
       return 'status-warning';
 
-    case 'Не виконано':
+    case 'Невиконано':
       return 'status-danger';
 
     default:
@@ -2046,7 +2046,7 @@ function getCardStatusClass(status) {
     case 'Виконано':
       return 'card-status-done';
 
-    case 'Не виконано':
+    case 'Невиконано':
       return 'card-status-failed';
 
     default:
@@ -2055,6 +2055,10 @@ function getCardStatusClass(status) {
 }
 
 function getCardStatusBadgeClass(status) {
+
+  if (status === SHIPMENT_STATUSES[0]) {
+    return 'card-status-badge-new';
+  }
 
   if (status === SHIPMENT_STATUSES[1]) {
     return 'card-status-badge-done';
