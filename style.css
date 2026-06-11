@@ -389,8 +389,6 @@ textarea:focus {
 }
 
 .card-status-text {
-  position: relative;
-
   flex: 0 0 auto;
 
   max-width: none;
@@ -399,38 +397,32 @@ textarea:focus {
 
   text-overflow: clip;
 
-  padding: 2px 10px;
+  min-width: 84px;
+  min-height: 28px;
+  padding: 4px 11px;
 
   color: #222;
 
-  border-radius: 999px;
+  border: 1px solid transparent;
+  border-radius: 6px;
 
-  isolation: isolate;
+  justify-content: center;
+  line-height: 1.2;
 }
 
-.card-status-text::before {
-  content: '';
-
-  position: absolute;
-  left: -6px;
-  right: -6px;
-  top: 50%;
-
-  height: 1.65em;
-
-  z-index: -1;
-
-  transform: translateY(-50%) rotate(-1.5deg);
-
-  border-radius: 50%;
+.card-status-badge-new {
+  background: #eadb82;
+  border-color: #d6c467;
 }
 
-.card-status-badge-done::before {
-  background: rgba(80, 151, 95, 0.28);
+.card-status-badge-done {
+  background: #9bd0a7;
+  border-color: #7db98b;
 }
 
-.card-status-badge-failed::before {
-  background: rgba(194, 86, 86, 0.28);
+.card-status-badge-failed {
+  background: #e7a0a0;
+  border-color: #cf8585;
 }
 
 .item-icon {
@@ -1249,7 +1241,7 @@ textarea:focus {
 }
 
 .dashboard-bar-fill.status-warning {
-  background: #7f7f7f;
+  background: #eadb82;
 }
 
 .dashboard-bar-fill.status-danger {
