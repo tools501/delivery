@@ -553,7 +553,7 @@ async function authenticateWithToken(
   let result;
 
   try {
-    result = await api('auth');
+    result = await api('bootstrap');
   } catch (e) {
     console.error(e);
 
@@ -594,7 +594,10 @@ async function authenticateWithToken(
     .innerText = currentUser.name;
 
   try {
-    await loadAppData(true);
+    applyShipmentOptions(result.data.options);
+    setupAdminDashboard();
+    applyShipments(result.data.shipments);
+    startVersionTimer();
   } catch (e) {
     console.error(e);
 
@@ -983,16 +986,21 @@ async function loadShipmentOptions() {
     throw new Error(result.error);
   }
 
+  applyShipmentOptions(result.data);
+}
+
+function applyShipmentOptions(data) {
+
   shipmentOptions = {
-    units: result.data.units || [],
-    destinations: result.data.destinations || []
+    units: data.units || [],
+    destinations: data.destinations || []
   };
 
-  if (!validateUiLabels(result.data.labels)) {
+  if (!validateUiLabels(data.labels)) {
     throw new Error('UI labels config is missing');
   }
 
-  uiLabels = result.data.labels;
+  uiLabels = data.labels;
 
   applyUiLabels();
   populateCreateOptions();
@@ -1159,22 +1167,25 @@ async function loadShipments() {
       throw new Error(result.error);
     }
 
-    const items = result.data || [];
-
-    allShipments = items;
-
-    lastKnownShipmentsVersion =
-      getShipmentsVersion(items);
-
-    setUpdateNotice(false);
-
-    renderVisibleShipments();
-    renderDashboard();
+    applyShipments(result.data);
 
   } finally {
     shipmentsLoader.classList.add('hidden');
     shipments.style.opacity = '1';
   }
+}
+
+function applyShipments(items) {
+
+  allShipments = items || [];
+
+  lastKnownShipmentsVersion =
+    getShipmentsVersion(allShipments);
+
+  setUpdateNotice(false);
+
+  renderVisibleShipments();
+  renderDashboard();
 }
 
 function getDashboardValues(key) {
