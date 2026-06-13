@@ -781,7 +781,13 @@ async function syncShipmentChanges() {
     const result = await api(
       'getShipmentChanges',
       {
-        sinceVersion: lastKnownShipmentsVersion
+        sinceVersion: lastKnownShipmentsVersion,
+        knownIdsAtVersion: allShipments
+          .filter(item => {
+            return String(item.updatedAtVersion) ===
+              String(lastKnownShipmentsVersion);
+          })
+          .map(item => String(item.id))
       }
     );
 
