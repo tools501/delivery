@@ -13,6 +13,7 @@ let sessionExpired = false;
 let pendingTwoFactorAuth = null;
 let editingShipmentId = null;
 let versionTimer = null;
+let shipmentSyncInProgress = false;
 let lastKnownShipmentsVersion = '';
 let allShipments = [];
 let activeListFilter = null;
@@ -753,7 +754,7 @@ function startVersionTimer() {
   clearInterval(versionTimer);
 
   versionTimer = setInterval(
-    checkShipmentsVersion,
+    syncShipmentChanges,
     60 * 1000
   );
 }
@@ -764,31 +765,45 @@ function stopVersionTimer() {
   versionTimer = null;
 }
 
-async function checkShipmentsVersion() {
+async function syncShipmentChanges() {
 
-  if (sessionExpired) {
+  if (
+    sessionExpired ||
+    shipmentSyncInProgress ||
+    !lastKnownShipmentsVersion
+  ) {
     return;
   }
 
+  shipmentSyncInProgress = true;
+
   try {
-    const result = await api('getShipmentsVersion');
+    const result = await api(
+      'getShipmentChanges',
+      {
+        sinceVersion: lastKnownShipmentsVersion
+      }
+    );
 
     if (!result.success) {
       return;
     }
 
     const version = result.data.version || '';
+    const changes = result.data.changes || [];
 
-    if (
-      lastKnownShipmentsVersion &&
-      version &&
-      version !== lastKnownShipmentsVersion
-    ) {
-      setUpdateNotice(true);
+    if (changes.length) {
+      applyIncrementalShipmentChanges(changes);
+    }
+
+    if (version) {
+      lastKnownShipmentsVersion = version;
     }
 
   } catch (e) {
     console.error(e);
+  } finally {
+    shipmentSyncInProgress = false;
   }
 }
 
@@ -1186,6 +1201,58 @@ function applyShipments(items) {
 
   renderVisibleShipments();
   renderDashboard();
+}
+
+function applyIncrementalShipmentChanges(changes) {
+
+  const itemsById = new Map(
+    allShipments.map(item => [
+      String(item.id),
+      item
+    ])
+  );
+  const appliedIds = new Set();
+
+  changes.forEach(item => {
+    const id = String(item.id);
+    const current = itemsById.get(id);
+    const currentVersion = Number(
+      current && current.updatedAtVersion || 0
+    );
+    const nextVersion = Number(
+      item.updatedAtVersion || 0
+    );
+
+    if (
+      current &&
+      nextVersion <= currentVersion
+    ) {
+      return;
+    }
+
+    itemsById.set(id, item);
+    appliedIds.add(id);
+  });
+
+  if (!appliedIds.size) {
+    return;
+  }
+
+  allShipments = Array.from(itemsById.values())
+    .sort((a, b) => {
+      return new Date(b.createdAtRaw) -
+             new Date(a.createdAtRaw);
+    });
+
+  renderIncrementalShipmentChanges(appliedIds);
+  renderDashboard();
+  setUpdateNotice(false);
+}
+
+function getLatestShipmentById(id) {
+  return allShipments.find(item => {
+    return String(item.id) === String(id);
+  });
 }
 
 function getDashboardValues(key) {
@@ -2160,6 +2227,17 @@ function renderEditForm(item) {
   return `
     <div class="details-edit-form">
 
+      <div class="edit-stale-warning hidden">
+        <span>Заявку змінили в іншому вікні</span>
+
+        <button
+          type="button"
+          class="reload-stale-edit-btn"
+        >
+          Завантажити актуальні дані
+        </button>
+      </div>
+
       <input
         type="text"
         class="edit-product"
@@ -2306,7 +2384,9 @@ function setupEditChangeTracking(item, details) {
       getEditData(details)
     );
 
-    saveBtn.disabled = currentData === initialData;
+    saveBtn.disabled =
+      details.dataset.stale === 'true' ||
+      currentData === initialData;
   };
 
   details
@@ -2495,19 +2575,33 @@ function renderShipments(items) {
   }
 
   items.forEach((item, index) => {
+    container.appendChild(
+      createShipmentCard(item, index)
+    );
+  });
+}
 
-    const div = document.createElement('div');
+function createShipmentCard(
+  item,
+  index,
+  options = {}
+) {
+  const div = document.createElement('div');
 
-    div.className = [
-      'card'
-    ]
-      .filter(Boolean)
-      .join(' ');
+  div.className = [
+    'card',
+    options.highlight ? 'card-updated' : ''
+  ]
+    .filter(Boolean)
+    .join(' ');
 
-    div.style.animationDelay =
-      `${index * 70}ms`;
+  div.dataset.shipmentId = String(item.id);
+  div.style.animationDelay =
+    options.highlight
+      ? '0ms'
+      : `${index * 70}ms`;
 
-    div.innerHTML = `
+  div.innerHTML = `
 
       <div class="card-main">
 
@@ -2570,9 +2664,14 @@ function renderShipments(items) {
     const details =
       div.querySelector('.card-details');
 
-    let opened = false;
+    let opened = Boolean(options.opened);
 
     details.innerHTML = renderDetailsView(item);
+
+    if (opened) {
+      details.classList.add('details-open');
+      toggle.innerText = 'Сховати ⌃';
+    }
 
     toggle.addEventListener('click', () => {
 
@@ -2587,9 +2686,15 @@ function renderShipments(items) {
 
       } else {
 
-        if (editingShipmentId === item.id) {
+        if (
+          String(editingShipmentId) ===
+          String(item.id)
+        ) {
           editingShipmentId = null;
-          details.innerHTML = renderDetailsView(item);
+          details.dataset.stale = 'false';
+          details.innerHTML = renderDetailsView(
+            getLatestShipmentById(item.id) || item
+          );
         }
 
         details.classList.remove('details-open');
@@ -2610,7 +2715,22 @@ function renderShipments(items) {
 
       if (event.target.classList.contains('cancel-edit-btn')) {
         editingShipmentId = null;
-        details.innerHTML = renderDetailsView(item);
+        details.dataset.stale = 'false';
+        details.innerHTML = renderDetailsView(
+          getLatestShipmentById(item.id) || item
+        );
+        return;
+      }
+
+      if (event.target.classList.contains('reload-stale-edit-btn')) {
+        const latestItem =
+          getLatestShipmentById(item.id);
+
+        editingShipmentId = null;
+        details.dataset.stale = 'false';
+        details.innerHTML = renderDetailsView(
+          latestItem || item
+        );
         return;
       }
 
@@ -2619,8 +2739,115 @@ function renderShipments(items) {
       }
     });
 
-    container.appendChild(div);
+  return div;
+}
+
+function markEditingShipmentStale(card) {
+
+  if (!card) {
+    return;
+  }
+
+  const details = card.querySelector('.card-details');
+  const warning = details &&
+    details.querySelector('.edit-stale-warning');
+  const saveBtn = details &&
+    details.querySelector('.save-shipment-btn');
+
+  if (!details || !warning) {
+    return;
+  }
+
+  details.dataset.stale = 'true';
+  warning.classList.remove('hidden');
+
+  if (saveBtn) {
+    saveBtn.disabled = true;
+  }
+
+  card.classList.add('card-stale');
+}
+
+function renderIncrementalShipmentChanges(changedIds) {
+
+  const container =
+    document.getElementById('shipments');
+  const visibleItems = getVisibleShipments();
+  const visibleIds = new Set(
+    visibleItems.map(item => String(item.id))
+  );
+  const cards = new Map(
+    Array.from(
+      container.querySelectorAll('.card[data-shipment-id]')
+    ).map(card => [
+      card.dataset.shipmentId,
+      card
+    ])
+  );
+
+  container.querySelector('.empty-state')?.remove();
+
+  cards.forEach((card, id) => {
+    if (
+      !visibleIds.has(id) &&
+      id !== String(editingShipmentId)
+    ) {
+      card.remove();
+      cards.delete(id);
+    }
   });
+
+  visibleItems.forEach((item, index) => {
+    const id = String(item.id);
+    let card = cards.get(id);
+
+    if (
+      changedIds.has(id) &&
+      id === String(editingShipmentId)
+    ) {
+      markEditingShipmentStale(card);
+    } else if (changedIds.has(id)) {
+      const opened = Boolean(
+        card &&
+        card.querySelector('.card-details.details-open')
+      );
+      const updatedCard = createShipmentCard(
+        item,
+        index,
+        {
+          highlight: true,
+          opened
+        }
+      );
+
+      if (card) {
+        card.replaceWith(updatedCard);
+      }
+
+      card = updatedCard;
+      cards.set(id, card);
+    } else if (!card) {
+      card = createShipmentCard(
+        item,
+        index,
+        {
+          highlight: true
+        }
+      );
+      cards.set(id, card);
+    }
+
+    if (card) {
+      container.appendChild(card);
+    }
+  });
+
+  if (
+    !visibleItems.length &&
+    editingShipmentId === null
+  ) {
+    renderShipments([]);
+  }
 }
 
 document.getElementById('createBtn')
