@@ -2200,6 +2200,10 @@ function renderDetailsView(item) {
     <div>
       <b>Створив заявку:</b> ${escapeHtml(item.name)}
     </div>
+
+    <div>
+      <b>Змінив заявку:</b> ${escapeHtml(item.updatedBy || 'Не вказано')}
+    </div>
   
     <div>
       <b>Статус:</b>
