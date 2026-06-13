@@ -338,9 +338,9 @@ textarea:focus {
 }
 
 .card.card-updated {
-  animation:
-    cardAppear 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards,
-    cardUpdated 1.8s ease 0.3s;
+  opacity: 1;
+  transform: none;
+  animation: cardUpdated 1.2s ease;
 }
 
 .edit-date-time-row {
@@ -1569,9 +1569,9 @@ button {
 
 @keyframes cardUpdated {
   0%,
-  45% {
+  35% {
     background: #f0f8f2;
-    box-shadow: 0 0 0 3px rgba(79,138,91,0.18);
+    box-shadow: 0 0 0 2px rgba(79,138,91,0.14);
   }
 
   100% {
