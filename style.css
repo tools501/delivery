@@ -309,6 +309,40 @@ textarea:focus {
   resize: vertical;
 }
 
+.edit-stale-warning {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  color: #6d5416;
+  background: #fff8df;
+  border: 1px solid #eadb9d;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.edit-stale-warning button {
+  min-height: 32px;
+  padding: 6px 9px;
+  color: #4d3b10;
+  background: #fffdf5;
+  border-color: #d9c77f;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.card-stale {
+  box-shadow: 0 0 0 2px rgba(197, 154, 53, 0.22);
+}
+
+.card.card-updated {
+  animation:
+    cardAppear 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards,
+    cardUpdated 1.8s ease 0.3s;
+}
+
 .edit-date-time-row {
   display: grid;
   grid-template-columns: 1fr 0.65fr;
@@ -1533,6 +1567,19 @@ button {
   }
 }
 
+@keyframes cardUpdated {
+  0%,
+  45% {
+    background: #f0f8f2;
+    box-shadow: 0 0 0 3px rgba(79,138,91,0.18);
+  }
+
+  100% {
+    background: white;
+    box-shadow: none;
+  }
+}
+
 #scrollTopBtn {
   position: fixed;
 
@@ -1854,6 +1901,16 @@ html {
   select {
     font-size: 16px;
     line-height: 1.2;
+  }
+
+  .edit-stale-warning {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .edit-stale-warning button {
+    width: 100%;
+    white-space: normal;
   }
 
   .summary-item {
