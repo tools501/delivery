@@ -2530,7 +2530,13 @@ async function saveShipmentEdit(item, details) {
     editingShipmentId = null;
     showToast('Зміни збережено', 'success');
 
-    await loadShipments();
+    if (result.data.shipment) {
+      applyIncrementalShipmentChanges([
+        result.data.shipment
+      ]);
+    } else {
+      await loadShipments();
+    }
 
   } catch (e) {
     console.error(e);
