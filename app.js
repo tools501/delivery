@@ -2843,8 +2843,17 @@ function renderIncrementalShipmentChanges(changedIds) {
       cards.set(id, card);
     }
 
-    if (card) {
-      container.appendChild(card);
+    const cardAtIndex =
+      container.children[index] || null;
+
+    if (
+      card &&
+      cardAtIndex !== card
+    ) {
+      container.insertBefore(
+        card,
+        cardAtIndex
+      );
     }
   });
 
