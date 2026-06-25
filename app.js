@@ -47,8 +47,11 @@ let uiLabels = null;
 
 const SHIPMENT_STATUSES = [
   'Нова',
-  'Виконано',
-  'Невиконано'
+  'Доставлено',
+  'Недоставлено',
+  'Отримано',
+  'Частково отримано',
+  'Неотримано'
 ];
 
 const DEFAULT_SHIPMENT_STATUS = 'Нова';
@@ -2109,13 +2112,16 @@ function getStatusClass(status) {
 
   switch (status) {
 
-    case 'Виконано':
+    case 'Доставлено':
+    case 'Отримано':
       return 'status-success';
 
     case 'Нова':
+    case 'Частково отримано':
       return 'status-warning';
 
-    case 'Невиконано':
+    case 'Недоставлено':
+    case 'Неотримано':
       return 'status-danger';
 
     default:
@@ -2127,10 +2133,12 @@ function getCardStatusClass(status) {
 
   switch (status) {
 
-    case 'Виконано':
+    case 'Доставлено':
+    case 'Отримано':
       return 'card-status-done';
 
-    case 'Невиконано':
+    case 'Недоставлено':
+    case 'Неотримано':
       return 'card-status-failed';
 
     default:
@@ -2140,16 +2148,26 @@ function getCardStatusClass(status) {
 
 function getCardStatusBadgeClass(status) {
 
-  if (status === SHIPMENT_STATUSES[0]) {
+  if (status === 'Нова') {
     return 'card-status-badge-new';
   }
 
-  if (status === SHIPMENT_STATUSES[1]) {
+  if (
+    status === 'Доставлено' ||
+    status === 'Отримано'
+  ) {
     return 'card-status-badge-done';
   }
 
-  if (status === SHIPMENT_STATUSES[2]) {
+  if (
+    status === 'Недоставлено' ||
+    status === 'Неотримано'
+  ) {
     return 'card-status-badge-failed';
+  }
+
+  if (status === 'Частково отримано') {
+    return 'card-status-badge-partial';
   }
 
   return '';
