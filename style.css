@@ -448,6 +448,11 @@ textarea:focus {
   border-color: #d6c467;
 }
 
+.card-status-badge-partial {
+  background: #f1d38a;
+  border-color: #d8b866;
+}
+
 .card-status-badge-done {
   background: #9bd0a7;
   border-color: #7db98b;
