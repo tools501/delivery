@@ -23,24 +23,23 @@ let shipmentOptions = {
 };
 
 const REQUIRED_UI_LABEL_KEYS = [
-  'product',
   'unit',
   'destination',
   'method',
   'crew',
+  'comment',
   'createRequest',
   'shipmentsTitle',
   'chooseUnit',
   'chooseDestination',
-  'detailsProduct',
-  'productRequired',
-  'productLength',
   'unitRequired',
   'unitLength',
   'destinationRequired',
   'destinationLength',
   'methodLength',
-  'crewLength'
+  'crewLength',
+  'commentRequired',
+  'commentLength'
 ];
 
 let uiLabels = null;
@@ -956,11 +955,8 @@ function validateUiLabels(labels) {
 
 function applyUiLabels() {
 
-  document.getElementById('product').placeholder =
-    uiLabels.product;
-
   document.getElementById('comment').placeholder =
-    'Коментар';
+    uiLabels.comment;
 
   document.getElementById('createBtn').innerText =
     uiLabels.createRequest;
@@ -1080,21 +1076,9 @@ async function reloadAppData() {
 
 async function createShipment() {
 
-  const product = document.getElementById('product').value.trim();
   const unit = document.getElementById('unit').value.trim();
   const destination = document.getElementById('destination').value.trim();
   const comment = document.getElementById('comment').value.trim();
-
-  if (!product) {
-    showToast(uiLabels.productRequired);
-    return;
-  }
-
-  if (!validateLength(product, 2, 80)) {
-    showToast(uiLabels.productLength);
-
-    return;
-  }
 
   if (!unit) {
     showToast(uiLabels.unitRequired);
@@ -1118,6 +1102,17 @@ async function createShipment() {
     return;
   }
 
+  if (!comment) {
+    showToast(uiLabels.commentRequired);
+    return;
+  }
+
+  if (!validateLength(comment, 3, 1000)) {
+    showToast(uiLabels.commentLength);
+
+    return;
+  }
+
   const createBtn = document.getElementById('createBtn');
 
   createBtn.classList.add('loading');
@@ -1127,7 +1122,6 @@ async function createShipment() {
       'createShipment',
       {
         name: currentUser.name,
-        product,
         unit,
         destination,
         comment
@@ -1139,7 +1133,6 @@ async function createShipment() {
       return;
     }
 
-    document.getElementById('product').value = '';
     document.getElementById('unit').value = '';
     document.getElementById('destination').value = '';
     document.getElementById('comment').value = '';
@@ -2192,10 +2185,6 @@ function renderDetailsView(item) {
     </div>
 
     <div>
-      <b>${escapeHtml(uiLabels.detailsProduct)}:</b> ${escapeHtml(item.product)}
-    </div>
-
-    <div>
       <b>${escapeHtml(uiLabels.unit)}:</b> ${escapeHtml(item.unit || 'Не вказано')}
     </div>
   
@@ -2208,7 +2197,7 @@ function renderDetailsView(item) {
     </div>
 
     <div>
-      <b>Дата відправки:</b> ${escapeHtml(item.sentAt || 'Не вказано')}
+      <b>Дата доставки:</b> ${escapeHtml(item.sentAt || 'Не вказано')}
     </div>
 
     <div>
@@ -2235,16 +2224,11 @@ function renderDetailsView(item) {
       <b>ID:</b> ${escapeHtml(item.id)}
     </div>
   
-    ${item.comment
-      ? `
-        <div class="details-comment">
-          <b>Коментар:</b>
+    <div class="details-comment">
+      <b>${escapeHtml(uiLabels.comment)}:</b>
 
-          <div class="details-comment-text">${escapeHtml(item.comment)}</div>
-        </div>
-      `
-      : ''
-    }
+      <div class="details-comment-text">${escapeHtml(item.comment || 'Не вказано')}</div>
+    </div>
 
     ${editButton}
   `;
@@ -2265,13 +2249,6 @@ function renderEditForm(item) {
           Завантажити актуальні дані
         </button>
       </div>
-
-      <input
-        type="text"
-        class="edit-product"
-        value="${escapeHtml(item.product)}"
-        placeholder="${escapeHtml(uiLabels.product)}"
-      >
 
       <div class="select-wrap">
         <select class="edit-unit">
@@ -2297,13 +2274,13 @@ function renderEditForm(item) {
 
       <div class="edit-date-time-row">
         <label class="edit-date-time-field">
-          <span>Дата відправки</span>
+          <span>Дата доставки</span>
 
           <input
             type="date"
             class="edit-sent-date"
             value="${formatDatePartInput(item.sentAtRaw)}"
-            aria-label="Дата відправки"
+            aria-label="Дата доставки"
           >
         </label>
 
@@ -2314,7 +2291,7 @@ function renderEditForm(item) {
             type="time"
             class="edit-sent-time"
             value="${formatTimePartInput(item.sentAtRaw)}"
-            aria-label="Час відправки"
+            aria-label="Час доставки"
           >
         </label>
       </div>
@@ -2334,7 +2311,7 @@ function renderEditForm(item) {
 
       <textarea
         class="edit-comment"
-        placeholder="Коментар"
+        placeholder="${escapeHtml(uiLabels.comment)}"
       >${escapeHtml(item.comment)}</textarea>
 
       <div class="details-actions">
@@ -2367,7 +2344,6 @@ function getEditData(details) {
     details.querySelector('.edit-sent-time').value.trim();
 
   return {
-    product: details.querySelector('.edit-product').value.trim(),
     unit: details.querySelector('.edit-unit').value.trim(),
     destination: details.querySelector('.edit-destination').value.trim(),
     method: details.querySelector('.edit-method').value.trim(),
@@ -2383,7 +2359,6 @@ function getEditData(details) {
 function getItemEditData(item) {
 
   return {
-    product: String(item.product || '').trim(),
     unit: String(item.unit || '').trim(),
     destination: String(item.destination || '').trim(),
     method: String(item.method || '').trim(),
@@ -2429,17 +2404,6 @@ function setupEditChangeTracking(item, details) {
 
 function validateEditData(data) {
 
-  if (!data.product) {
-    showToast(uiLabels.productRequired);
-    return false;
-  }
-
-  if (!validateLength(data.product, 2, 80)) {
-    showToast(uiLabels.productLength);
-
-    return false;
-  }
-
   if (!data.unit) {
     showToast(uiLabels.unitRequired);
     return false;
@@ -2473,7 +2437,7 @@ function validateEditData(data) {
     data.sentDate &&
     !data.sentTime
   ) {
-    showToast('Вкажіть час відправки');
+    showToast('Вкажіть час доставки');
     return false;
   }
 
@@ -2481,7 +2445,7 @@ function validateEditData(data) {
     data.sentTime &&
     !data.sentDate
   ) {
-    showToast('Вкажіть дату відправки або очистіть час');
+    showToast('Вкажіть дату доставки або очистіть час');
     return false;
   }
 
@@ -2492,6 +2456,17 @@ function validateEditData(data) {
 
   if (!validateLength(data.destination, 2, 180)) {
     showToast(uiLabels.destinationLength);
+
+    return false;
+  }
+
+  if (!data.comment) {
+    showToast(uiLabels.commentRequired);
+    return false;
+  }
+
+  if (!validateLength(data.comment, 3, 1000)) {
+    showToast(uiLabels.commentLength);
 
     return false;
   }
