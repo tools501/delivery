@@ -1154,7 +1154,7 @@ async function createShipment() {
 
     showToast(
       getRequestErrorMessage(
-        'Помилка створення заявки'
+        'Помилка створення замовлення'
       )
     );
 
@@ -1983,7 +1983,7 @@ function renderDashboardChart(items) {
       class="dashboard-total"
       tabindex="0"
       role="button"
-      aria-label="Показати всі заявки з дашборду"
+      aria-label="Показати всі замовлення з дашборду"
     >
       <span>${total}</span>
       <small>
@@ -2002,7 +2002,7 @@ function renderDashboardChart(items) {
             data-group-value="${escapeHtml(item.label)}"
             tabindex="0"
             role="button"
-            aria-label="Показати заявки: ${escapeHtml(item.label)}"
+            aria-label="Показати замовлення: ${escapeHtml(item.label)}"
           >
             <div class="dashboard-bar-label">
               ${escapeHtml(item.label)}
@@ -2189,7 +2189,7 @@ function renderDetailsView(item) {
     </div>
   
     <div>
-      <b>Дата створення заявки:</b> ${escapeHtml(item.createdAt)}
+      <b>Створення:</b> ${escapeHtml(item.createdAt)}
     </div>
   
     <div>
@@ -2205,11 +2205,11 @@ function renderDetailsView(item) {
     </div>
   
     <div>
-      <b>Створив заявку:</b> ${escapeHtml(item.name)}
+      <b>Створив замовлення:</b> ${escapeHtml(item.name)}
     </div>
 
     <div>
-      <b>Змінив заявку:</b> ${escapeHtml(item.updatedBy || 'Не вказано')}
+      <b>Змінив замовлення:</b> ${escapeHtml(item.updatedBy || 'Не вказано')}
     </div>
   
     <div>
@@ -2540,7 +2540,7 @@ async function saveShipmentEdit(item, details) {
 
     showToast(
       getRequestErrorMessage(
-        'Помилка збереження заявки'
+        'Помилка збереження замовлення'
       )
     );
 
