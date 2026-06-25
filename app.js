@@ -19,6 +19,7 @@ let allShipments = [];
 let activeListFilter = null;
 let shipmentOptions = {
   units: [],
+  methods: [],
   destinations: []
 };
 
@@ -32,6 +33,7 @@ const REQUIRED_UI_LABEL_KEYS = [
   'shipmentsTitle',
   'chooseUnit',
   'chooseDestination',
+  'chooseMethod',
   'unitRequired',
   'unitLength',
   'destinationRequired',
@@ -63,6 +65,9 @@ const DASHBOARD_FILTERS = [
   },
   {
     key: 'unit'
+  },
+  {
+    key: 'method'
   },
   {
     key: 'destination'
@@ -926,6 +931,16 @@ function buildOptions(options, selectedValue) {
     .join('');
 }
 
+function buildOptionalOptions(options, selectedValue, emptyLabel) {
+
+  return `
+    <option value="" ${selectedValue ? '' : 'selected'}>
+      ${escapeHtml(emptyLabel)}
+    </option>
+    ${buildOptions(options, selectedValue)}
+  `;
+}
+
 function populateSelect(select, options, placeholder) {
 
   select.innerHTML = `
@@ -971,11 +986,18 @@ function applyUiLabels() {
   const dashboardUnitOption =
     dashboardGroupBy.querySelector('option[value="unit"]');
 
+  const dashboardMethodOption =
+    dashboardGroupBy.querySelector('option[value="method"]');
+
   const dashboardDestinationOption =
     dashboardGroupBy.querySelector('option[value="destination"]');
 
   if (dashboardUnitOption) {
     dashboardUnitOption.innerText = uiLabels.unit;
+  }
+
+  if (dashboardMethodOption) {
+    dashboardMethodOption.innerText = uiLabels.method;
   }
 
   if (dashboardDestinationOption) {
@@ -996,6 +1018,7 @@ function populateCreateOptions() {
     shipmentOptions.destinations,
     uiLabels.chooseDestination
   );
+
 }
 
 async function loadShipmentOptions() {
@@ -1013,6 +1036,7 @@ function applyShipmentOptions(data) {
 
   shipmentOptions = {
     units: data.units || [],
+    methods: data.methods || [],
     destinations: data.destinations || []
   };
 
@@ -1267,6 +1291,10 @@ function getDashboardValues(key) {
     return shipmentOptions.units;
   }
 
+  if (key === 'method') {
+    return shipmentOptions.methods;
+  }
+
   if (key === 'destination') {
     return shipmentOptions.destinations;
   }
@@ -1290,6 +1318,10 @@ function getDashboardFilterLabel(key) {
 
   if (key === 'destination') {
     return uiLabels.destination;
+  }
+
+  if (key === 'method') {
+    return uiLabels.method;
   }
 
   if (key === 'status') {
@@ -2265,12 +2297,15 @@ function renderEditForm(item) {
         </select>
       </div>
 
-      <input
-        type="text"
-        class="edit-method"
-        value="${escapeHtml(item.method)}"
-        placeholder="${escapeHtml(uiLabels.method)}"
-      >
+      <div class="select-wrap">
+        <select class="edit-method">
+          ${buildOptionalOptions(
+            shipmentOptions.methods,
+            item.method,
+            'Не вказано'
+          )}
+        </select>
+      </div>
 
       <div class="edit-date-time-row">
         <label class="edit-date-time-field">
