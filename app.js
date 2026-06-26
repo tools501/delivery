@@ -19,6 +19,7 @@ let allShipments = [];
 let activeListFilter = null;
 let shipmentOptions = {
   units: [],
+  crews: [],
   methods: [],
   destinations: []
 };
@@ -65,6 +66,9 @@ const DASHBOARD_FILTERS = [
   },
   {
     key: 'unit'
+  },
+  {
+    key: 'crew'
   },
   {
     key: 'method'
@@ -986,6 +990,9 @@ function applyUiLabels() {
   const dashboardUnitOption =
     dashboardGroupBy.querySelector('option[value="unit"]');
 
+  const dashboardCrewOption =
+    dashboardGroupBy.querySelector('option[value="crew"]');
+
   const dashboardMethodOption =
     dashboardGroupBy.querySelector('option[value="method"]');
 
@@ -994,6 +1001,10 @@ function applyUiLabels() {
 
   if (dashboardUnitOption) {
     dashboardUnitOption.innerText = uiLabels.unit;
+  }
+
+  if (dashboardCrewOption) {
+    dashboardCrewOption.innerText = uiLabels.crew;
   }
 
   if (dashboardMethodOption) {
@@ -1036,6 +1047,7 @@ function applyShipmentOptions(data) {
 
   shipmentOptions = {
     units: data.units || [],
+    crews: data.crews || [],
     methods: data.methods || [],
     destinations: data.destinations || []
   };
@@ -1291,6 +1303,10 @@ function getDashboardValues(key) {
     return shipmentOptions.units;
   }
 
+  if (key === 'crew') {
+    return shipmentOptions.crews;
+  }
+
   if (key === 'method') {
     return shipmentOptions.methods;
   }
@@ -1318,6 +1334,10 @@ function getDashboardFilterLabel(key) {
 
   if (key === 'destination') {
     return uiLabels.destination;
+  }
+
+  if (key === 'crew') {
+    return uiLabels.crew;
   }
 
   if (key === 'method') {
@@ -2225,15 +2245,15 @@ function renderDetailsView(item) {
     </div>
   
     <div>
+      <b>${escapeHtml(uiLabels.crew)}:</b> ${escapeHtml(item.crew || 'Не вказано')}
+    </div>
+
+    <div>
       <b>${escapeHtml(uiLabels.method)}:</b> ${escapeHtml(item.method || 'Не вказано')}
     </div>
 
     <div>
       <b>Дата доставки:</b> ${escapeHtml(item.sentAt || 'Не вказано')}
-    </div>
-
-    <div>
-      <b>${escapeHtml(uiLabels.crew)}:</b> ${escapeHtml(item.crew || 'Не вказано')}
     </div>
   
     <div>
@@ -2331,12 +2351,15 @@ function renderEditForm(item) {
         </label>
       </div>
 
-      <input
-        type="text"
-        class="edit-crew"
-        value="${escapeHtml(item.crew)}"
-        placeholder="${escapeHtml(uiLabels.crew)}"
-      >
+      <div class="select-wrap">
+        <select class="edit-crew">
+          ${buildOptionalOptions(
+            shipmentOptions.crews,
+            item.crew,
+            'Не вказано'
+          )}
+        </select>
+      </div>
 
       <div class="select-wrap">
         <select class="edit-status">
@@ -3018,4 +3041,3 @@ document
   });
 
 trySharedSession();
-// test
