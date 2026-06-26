@@ -2322,7 +2322,7 @@ function renderEditForm(item) {
           ${buildOptionalOptions(
             shipmentOptions.crews,
             item.crew,
-            'Не вказано'
+            uiLabels.crew
           )}
         </select>
       </div>
@@ -2332,7 +2332,7 @@ function renderEditForm(item) {
           ${buildOptionalOptions(
             shipmentOptions.methods,
             item.method,
-            'Не вказано'
+            uiLabels.method
           )}
         </select>
       </div>
