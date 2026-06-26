@@ -2317,25 +2317,33 @@ function renderEditForm(item) {
         </select>
       </div>
 
-      <div class="select-wrap">
-        <select class="edit-crew">
-          ${buildOptionalOptions(
-            shipmentOptions.crews,
-            item.crew,
-            uiLabels.crew
-          )}
-        </select>
-      </div>
+      <label class="edit-select-field">
+        <span>${escapeHtml(uiLabels.crew)}</span>
 
-      <div class="select-wrap">
-        <select class="edit-method">
-          ${buildOptionalOptions(
-            shipmentOptions.methods,
-            item.method,
-            uiLabels.method
-          )}
-        </select>
-      </div>
+        <div class="select-wrap">
+          <select class="edit-crew">
+            ${buildOptionalOptions(
+              shipmentOptions.crews,
+              item.crew,
+              'Не вказано'
+            )}
+          </select>
+        </div>
+      </label>
+
+      <label class="edit-select-field">
+        <span>${escapeHtml(uiLabels.method)}</span>
+
+        <div class="select-wrap">
+          <select class="edit-method">
+            ${buildOptionalOptions(
+              shipmentOptions.methods,
+              item.method,
+              'Не вказано'
+            )}
+          </select>
+        </div>
+      </label>
 
       <div class="edit-date-time-row">
         <label class="edit-date-time-field">
