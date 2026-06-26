@@ -349,11 +349,16 @@ textarea:focus {
   gap: 8px;
 }
 
-.edit-date-time-field {
+.edit-date-time-field,
+.edit-select-field {
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
+}
+
+.edit-select-field {
+  margin: 0;
 }
 
 .edit-date-time-field input {
@@ -361,7 +366,8 @@ textarea:focus {
   min-width: 0;
 }
 
-.edit-date-time-field span {
+.edit-date-time-field span,
+.edit-select-field span {
   color: #777;
 
   font-size: 12px;
@@ -1978,11 +1984,13 @@ html {
     gap: 8px;
   }
 
-  .edit-date-time-field {
+  .edit-date-time-field,
+  .edit-select-field {
     gap: 4px;
   }
 
-  .edit-date-time-field span {
+  .edit-date-time-field span,
+  .edit-select-field span {
     font-size: 11px;
   }
 
