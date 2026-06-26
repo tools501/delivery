@@ -2318,6 +2318,16 @@ function renderEditForm(item) {
       </div>
 
       <div class="select-wrap">
+        <select class="edit-crew">
+          ${buildOptionalOptions(
+            shipmentOptions.crews,
+            item.crew,
+            'Не вказано'
+          )}
+        </select>
+      </div>
+
+      <div class="select-wrap">
         <select class="edit-method">
           ${buildOptionalOptions(
             shipmentOptions.methods,
@@ -2349,16 +2359,6 @@ function renderEditForm(item) {
             aria-label="Час доставки"
           >
         </label>
-      </div>
-
-      <div class="select-wrap">
-        <select class="edit-crew">
-          ${buildOptionalOptions(
-            shipmentOptions.crews,
-            item.crew,
-            'Не вказано'
-          )}
-        </select>
       </div>
 
       <div class="select-wrap">
