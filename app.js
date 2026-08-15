@@ -17,8 +17,12 @@ let shipmentSyncInProgress = false;
 let lastKnownShipmentsVersion = '';
 let allShipments = [];
 let activeListFilter = null;
+let shipmentSearchQuery = '';
+let shipmentSearchOpened = false;
+let shipmentPendingDelete = null;
 let shipmentOptions = {
   units: [],
+  hubs: [],
   crews: [],
   methods: [],
   destinations: []
@@ -27,20 +31,29 @@ let shipmentOptions = {
 const REQUIRED_UI_LABEL_KEYS = [
   'unit',
   'destination',
+  'hub',
   'method',
   'crew',
+  'deliveryPriority',
+  'weightKg',
   'comment',
   'createRequest',
   'shipmentsTitle',
   'chooseUnit',
   'chooseDestination',
+  'chooseHub',
   'chooseMethod',
   'unitRequired',
   'unitLength',
   'destinationRequired',
   'destinationLength',
+  'hubRequired',
+  'hubLength',
   'methodLength',
   'crewLength',
+  'deliveryPriorityInvalid',
+  'weightKgRequired',
+  'weightKgInvalid',
   'commentRequired',
   'commentLength'
 ];
@@ -49,6 +62,7 @@ let uiLabels = null;
 
 const SHIPMENT_STATUSES = [
   'Нова',
+  'На хабі',
   'Доставлено',
   'Недоставлено',
   'Отримано',
@@ -57,6 +71,16 @@ const SHIPMENT_STATUSES = [
 ];
 
 const DEFAULT_SHIPMENT_STATUS = 'Нова';
+const HUB_SHIPMENT_STATUS = 'На хабі';
+const DELETABLE_SHIPMENT_STATUSES = [
+  DEFAULT_SHIPMENT_STATUS,
+  HUB_SHIPMENT_STATUS
+];
+const DEFAULT_DELIVERY_PRIORITY = 'Стандартний';
+const DELIVERY_PRIORITIES = [
+  DEFAULT_DELIVERY_PRIORITY,
+  'Терміновий'
+];
 const DASHBOARD_ALL_VALUE = 'Всі';
 const API_TIMEOUT_MS = 30 * 1000;
 
@@ -92,6 +116,18 @@ const toggleFormIcon =
 
 const loadBtn =
   document.getElementById('loadBtn');
+
+const shipmentSearchToggle =
+  document.getElementById('shipmentSearchToggle');
+
+const shipmentSearchPanel =
+  document.getElementById('shipmentSearchPanel');
+
+const shipmentSearchInput =
+  document.getElementById('shipmentSearchInput');
+
+const shipmentSearchCount =
+  document.getElementById('shipmentSearchCount');
 
 const adminDashboard =
   document.getElementById('adminDashboard');
@@ -163,6 +199,36 @@ const listFilterText =
 
 const clearListFilterBtn =
   document.getElementById('clearListFilterBtn');
+
+const deleteShipmentModal =
+  document.getElementById('deleteShipmentModal');
+
+const deleteModalConfirmStep =
+  document.getElementById('deleteModalConfirmStep');
+
+const deleteModalReasonStep =
+  document.getElementById('deleteModalReasonStep');
+
+const deleteModalSummary =
+  document.getElementById('deleteModalSummary');
+
+const deleteReasonInput =
+  document.getElementById('deleteReasonInput');
+
+const deleteReasonCounter =
+  document.getElementById('deleteReasonCounter');
+
+const deleteModalCancelBtn =
+  document.getElementById('deleteModalCancelBtn');
+
+const deleteModalNextBtn =
+  document.getElementById('deleteModalNextBtn');
+
+const deleteModalBackBtn =
+  document.getElementById('deleteModalBackBtn');
+
+const deleteModalSubmitBtn =
+  document.getElementById('deleteModalSubmitBtn');
 
 let formOpened = false;
 
@@ -808,9 +874,16 @@ async function syncShipmentChanges() {
 
     const version = result.data.version || '';
     const changes = result.data.changes || [];
+    const deletedIds = result.data.deletedIds || [];
 
-    if (changes.length) {
-      applyIncrementalShipmentChanges(changes);
+    if (
+      changes.length ||
+      deletedIds.length
+    ) {
+      applyIncrementalShipmentChanges(
+        changes,
+        deletedIds
+      );
     }
 
     if (version) {
@@ -824,87 +897,46 @@ async function syncShipmentChanges() {
   }
 }
 
-function validateLength(value, min, max) {
+function getShipmentValidationErrorMessage(error) {
+  const messages = {
+    'deliveryPriority is invalid': uiLabels.deliveryPriorityInvalid,
+    FORBIDDEN_PRIORITY: 'Тільки admin може змінювати пріоритет доставки',
+    'hub is required': uiLabels.hubRequired,
+    'hub length is invalid': uiLabels.hubLength,
+    'weightKg is required': uiLabels.weightKgRequired,
+    'weightKg is invalid': uiLabels.weightKgInvalid
+  };
 
-  return value.length >= min &&
-         value.length <= max;
+  return messages[error] || error;
 }
 
-function getRequestErrorMessage(defaultMessage) {
+function getCurrentUserRole() {
 
-  if (!navigator.onLine) {
-    return 'Немає з’єднання з інтернетом';
-  }
-
-  return defaultMessage;
-}
-
-function escapeHtml(value) {
-
-  return String(value || '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function formatDateTimeInput(value) {
-
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-
-  if (isNaN(date.getTime())) {
-    return '';
-  }
-
-  date.setMinutes(
-    date.getMinutes() - date.getTimezoneOffset()
-  );
-
-  return date.toISOString().slice(0, 16);
-}
-
-function formatDatePartInput(value) {
-
-  return formatDateTimeInput(value).slice(0, 10);
-}
-
-function formatTimePartInput(value) {
-
-  return formatDateTimeInput(value).slice(11, 16);
-}
-
-function combineDateTimeInput(dateValue, timeValue) {
-
-  if (
-    !dateValue ||
-    !timeValue
-  ) {
-    return '';
-  }
-
-  return `${dateValue}T${timeValue}`;
-}
-
-function formatDateInput(date) {
-
-  const value = new Date(date);
-
-  value.setMinutes(
-    value.getMinutes() - value.getTimezoneOffset()
-  );
-
-  return value.toISOString().slice(0, 10);
+  return String((currentUser && currentUser.role) || '')
+    .toLowerCase()
+    .trim();
 }
 
 function isAdmin() {
 
-  return currentUser &&
-         String(currentUser.role).toLowerCase() === 'admin';
+  const role = getCurrentUserRole();
+
+  return role === 'manager' ||
+         role === 'admin';
+}
+
+function canEditDeliveryPriority() {
+
+  const role = getCurrentUserRole();
+
+  return role === 'admin';
+}
+
+function canDeleteShipment(item) {
+
+  return getCurrentUserRole() === 'admin' &&
+         item &&
+         DELETABLE_SHIPMENT_STATUSES.includes(item.status);
 }
 
 function canEditShipment(item) {
@@ -977,6 +1009,9 @@ function applyUiLabels() {
   document.getElementById('comment').placeholder =
     uiLabels.comment;
 
+  document.getElementById('weightKg').placeholder =
+    uiLabels.weightKg;
+
   document.getElementById('createBtn').innerText =
     uiLabels.createRequest;
 
@@ -1047,6 +1082,7 @@ function applyShipmentOptions(data) {
 
   shipmentOptions = {
     units: data.units || [],
+    hubs: data.hubs || [],
     crews: data.crews || [],
     methods: data.methods || [],
     destinations: data.destinations || []
@@ -1114,6 +1150,7 @@ async function createShipment() {
 
   const unit = document.getElementById('unit').value.trim();
   const destination = document.getElementById('destination').value.trim();
+  const weightKg = document.getElementById('weightKg').value.trim();
   const comment = document.getElementById('comment').value.trim();
 
   if (!unit) {
@@ -1135,6 +1172,16 @@ async function createShipment() {
   if (!validateLength(destination, 2, 180)) {
     showToast(uiLabels.destinationLength);
 
+    return;
+  }
+
+  if (!weightKg) {
+    showToast(uiLabels.weightKgRequired);
+    return;
+  }
+
+  if (!isValidShipmentWeight(weightKg)) {
+    showToast(uiLabels.weightKgInvalid);
     return;
   }
 
@@ -1160,17 +1207,19 @@ async function createShipment() {
         name: currentUser.name,
         unit,
         destination,
+        weightKg,
         comment
       }
     );
 
     if (!result.success) {
-      showToast(result.error);
+      showToast(getShipmentValidationErrorMessage(result.error));
       return;
     }
 
     document.getElementById('unit').value = '';
     document.getElementById('destination').value = '';
+    document.getElementById('weightKg').value = '';
     document.getElementById('comment').value = '';
 
     shipmentForm.classList.remove('form-open');
@@ -1241,7 +1290,10 @@ function applyShipments(items) {
   renderDashboard();
 }
 
-function applyIncrementalShipmentChanges(changes) {
+function applyIncrementalShipmentChanges(
+  changes,
+  deletedIds = []
+) {
 
   const itemsById = new Map(
     allShipments.map(item => [
@@ -1250,6 +1302,17 @@ function applyIncrementalShipmentChanges(changes) {
     ])
   );
   const appliedIds = new Set();
+  let hasDeletions = false;
+
+  deletedIds.forEach(id => {
+    if (itemsById.delete(String(id))) {
+      hasDeletions = true;
+    }
+
+    if (String(editingShipmentId) === String(id)) {
+      editingShipmentId = null;
+    }
+  });
 
   changes.forEach(item => {
     const id = String(item.id);
@@ -1273,6 +1336,18 @@ function applyIncrementalShipmentChanges(changes) {
   });
 
   if (!appliedIds.size) {
+    if (hasDeletions) {
+      allShipments = Array.from(itemsById.values())
+        .sort((a, b) => {
+          return new Date(b.createdAtRaw) -
+                 new Date(a.createdAtRaw);
+        });
+
+      renderIncrementalShipmentDeletions(deletedIds);
+      renderDashboard();
+      setUpdateNotice(false);
+    }
+
     return;
   }
 
@@ -1282,9 +1357,33 @@ function applyIncrementalShipmentChanges(changes) {
              new Date(a.createdAtRaw);
     });
 
+  if (hasDeletions) {
+    renderIncrementalShipmentDeletions(deletedIds);
+  }
+
   renderIncrementalShipmentChanges(appliedIds);
   renderDashboard();
   setUpdateNotice(false);
+}
+
+function applyLocalShipmentDelete(id, version) {
+
+  applyIncrementalShipmentChanges(
+    [],
+    [id]
+  );
+
+  const nextVersion = Number(version || 0);
+  const currentVersion = Number(
+    lastKnownShipmentsVersion || 0
+  );
+
+  if (nextVersion > currentVersion) {
+    lastKnownShipmentsVersion = String(nextVersion);
+  } else {
+    lastKnownShipmentsVersion =
+      getShipmentsVersion(allShipments);
+  }
 }
 
 function getLatestShipmentById(id) {
@@ -1301,6 +1400,10 @@ function getDashboardValues(key) {
 
   if (key === 'unit') {
     return shipmentOptions.units;
+  }
+
+  if (key === 'hub') {
+    return shipmentOptions.hubs;
   }
 
   if (key === 'crew') {
@@ -1334,6 +1437,10 @@ function getDashboardFilterLabel(key) {
 
   if (key === 'destination') {
     return uiLabels.destination;
+  }
+
+  if (key === 'hub') {
+    return uiLabels.hub;
   }
 
   if (key === 'crew') {
@@ -1703,10 +1810,97 @@ function getVisibleShipments() {
   );
 }
 
+function getSearchFilteredShipments(items) {
+
+  const query =
+    normalizeShipmentSearchValue(shipmentSearchQuery);
+
+  if (!query) {
+    return items;
+  }
+
+  return items.filter(item => {
+    return normalizeShipmentSearchValue(
+      item.destination
+    ).includes(query);
+  });
+}
+
+function updateShipmentSearchCount(
+  visibleCount,
+  totalCount
+) {
+
+  if (!shipmentSearchCount) {
+    return;
+  }
+
+  const query =
+    normalizeShipmentSearchValue(shipmentSearchQuery);
+
+  if (query) {
+    shipmentSearchCount.innerText =
+      `Знайдено: ${visibleCount} з ${totalCount}`;
+    return;
+  }
+
+  shipmentSearchCount.innerText =
+    `Всього: ${totalCount}`;
+}
+
 function renderVisibleShipments() {
 
+  const visibleItems = getVisibleShipments();
+  const searchFilteredItems =
+    getSearchFilteredShipments(visibleItems);
+
   updateListFilterNotice();
-  renderShipments(getVisibleShipments());
+  updateShipmentSearchCount(
+    searchFilteredItems.length,
+    visibleItems.length
+  );
+  renderShipments(searchFilteredItems);
+}
+
+function setShipmentSearchOpened(opened) {
+
+  shipmentSearchOpened = opened;
+
+  shipmentSearchPanel.classList.toggle(
+    'is-open',
+    shipmentSearchOpened
+  );
+
+  shipmentSearchPanel.setAttribute(
+    'aria-hidden',
+    shipmentSearchOpened ? 'false' : 'true'
+  );
+
+  shipmentSearchToggle.classList.toggle(
+    'is-active',
+    shipmentSearchOpened
+  );
+
+  shipmentSearchToggle.setAttribute(
+    'aria-expanded',
+    shipmentSearchOpened ? 'true' : 'false'
+  );
+
+  if (shipmentSearchOpened) {
+    window.setTimeout(() => {
+      shipmentSearchInput.focus();
+    }, 120);
+    return;
+  }
+
+  shipmentSearchQuery = '';
+  shipmentSearchInput.value = '';
+  renderVisibleShipments();
+}
+
+function toggleShipmentSearch() {
+
+  setShipmentSearchOpened(!shipmentSearchOpened);
 }
 
 function applyDashboardListFilter(groupKey, groupValue) {
@@ -2157,9 +2351,14 @@ function getStatusClass(status) {
 
   switch (status) {
 
-    case 'Доставлено':
     case 'Отримано':
       return 'status-success';
+
+    case 'Доставлено':
+      return 'status-delivered';
+
+    case 'На хабі':
+      return 'status-hub';
 
     case 'Нова':
     case 'Частково отримано':
@@ -2178,9 +2377,14 @@ function getCardStatusClass(status) {
 
   switch (status) {
 
-    case 'Доставлено':
     case 'Отримано':
       return 'card-status-done';
+
+    case 'Доставлено':
+      return 'card-status-delivered';
+
+    case 'На хабі':
+      return 'card-status-hub';
 
     case 'Недоставлено':
     case 'Неотримано':
@@ -2197,11 +2401,16 @@ function getCardStatusBadgeClass(status) {
     return 'card-status-badge-new';
   }
 
-  if (
-    status === 'Доставлено' ||
-    status === 'Отримано'
-  ) {
+  if (status === 'На хабі') {
+    return 'card-status-badge-hub';
+  }
+
+  if (status === 'Отримано') {
     return 'card-status-badge-done';
+  }
+
+  if (status === 'Доставлено') {
+    return 'card-status-badge-delivered';
   }
 
   if (
@@ -2230,6 +2439,24 @@ function renderDetailsView(item) {
       </button>
     `
     : '';
+  const deleteButton = canDeleteShipment(item)
+    ? `
+      <button
+        type="button"
+        class="details-action danger delete-shipment-btn"
+      >
+        Видалити
+      </button>
+    `
+    : '';
+  const actionButtons = deleteButton
+    ? `
+      <div class="details-actions split-actions">
+        ${editButton}
+        ${deleteButton}
+      </div>
+    `
+    : editButton;
 
   return `
     <div>
@@ -2239,9 +2466,13 @@ function renderDetailsView(item) {
     <div>
       <b>${escapeHtml(uiLabels.unit)}:</b> ${escapeHtml(item.unit || 'Не вказано')}
     </div>
-  
+
     <div>
       <b>Створення:</b> ${escapeHtml(item.createdAt)}
+    </div>
+
+    <div>
+      <b>${escapeHtml(uiLabels.hub)}:</b> ${escapeHtml(item.hub || 'Не вказано')}
     </div>
   
     <div>
@@ -2254,6 +2485,10 @@ function renderDetailsView(item) {
 
     <div>
       <b>Дата доставки:</b> ${escapeHtml(item.sentAt || 'Не вказано')}
+    </div>
+
+    <div>
+      <b>${escapeHtml(uiLabels.deliveryPriority)}:</b> ${escapeHtml(item.deliveryPriority || DEFAULT_DELIVERY_PRIORITY)}
     </div>
   
     <div>
@@ -2282,7 +2517,11 @@ function renderDetailsView(item) {
       <div class="details-comment-text">${escapeHtml(item.comment || 'Не вказано')}</div>
     </div>
 
-    ${editButton}
+    <div>
+      <b>${escapeHtml(uiLabels.weightKg)}:</b> ${escapeHtml(item.weightKg || 'Не вказано')}
+    </div>
+
+    ${actionButtons}
   `;
 }
 
@@ -2316,6 +2555,20 @@ function renderEditForm(item) {
           )}
         </select>
       </div>
+
+      <label class="edit-select-field">
+        <span>${escapeHtml(uiLabels.hub)}</span>
+
+        <div class="select-wrap">
+          <select class="edit-hub">
+            ${buildOptionalOptions(
+              shipmentOptions.hubs,
+              item.hub,
+              'Не вказано'
+            )}
+          </select>
+        </div>
+      </label>
 
       <label class="edit-select-field">
         <span>${escapeHtml(uiLabels.crew)}</span>
@@ -2369,6 +2622,22 @@ function renderEditForm(item) {
         </label>
       </div>
 
+      <label class="edit-select-field">
+        <span>${escapeHtml(uiLabels.deliveryPriority)}</span>
+
+        <div class="select-wrap">
+          <select
+            class="edit-delivery-priority"
+            ${canEditDeliveryPriority() ? '' : 'disabled'}
+          >
+            ${buildOptions(
+              DELIVERY_PRIORITIES,
+              item.deliveryPriority || DEFAULT_DELIVERY_PRIORITY
+            )}
+          </select>
+        </div>
+      </label>
+
       <div class="select-wrap">
         <select class="edit-status">
           ${buildOptions(SHIPMENT_STATUSES, item.status)}
@@ -2379,6 +2648,17 @@ function renderEditForm(item) {
         class="edit-comment"
         placeholder="${escapeHtml(uiLabels.comment)}"
       >${escapeHtml(item.comment)}</textarea>
+
+      <label class="edit-select-field">
+        <span>${escapeHtml(uiLabels.weightKg)}</span>
+
+        <input
+          type="text"
+          inputmode="decimal"
+          class="edit-weight-kg"
+          value="${escapeHtml(item.weightKg || '')}"
+        >
+      </label>
 
       <div class="details-actions">
         <button
@@ -2412,11 +2692,15 @@ function getEditData(details) {
   return {
     unit: details.querySelector('.edit-unit').value.trim(),
     destination: details.querySelector('.edit-destination').value.trim(),
+    hub: details.querySelector('.edit-hub').value.trim(),
     method: details.querySelector('.edit-method').value.trim(),
     sentDate,
     sentTime,
     sentAt: combineDateTimeInput(sentDate, sentTime),
     crew: details.querySelector('.edit-crew').value.trim(),
+    deliveryPriority:
+      details.querySelector('.edit-delivery-priority').value,
+    weightKg: details.querySelector('.edit-weight-kg').value.trim(),
     status: details.querySelector('.edit-status').value,
     comment: details.querySelector('.edit-comment').value.trim()
   };
@@ -2427,6 +2711,7 @@ function getItemEditData(item) {
   return {
     unit: String(item.unit || '').trim(),
     destination: String(item.destination || '').trim(),
+    hub: String(item.hub || '').trim(),
     method: String(item.method || '').trim(),
     sentDate: formatDatePartInput(item.sentAtRaw),
     sentTime: formatTimePartInput(item.sentAtRaw),
@@ -2435,6 +2720,12 @@ function getItemEditData(item) {
       formatTimePartInput(item.sentAtRaw)
     ),
     crew: String(item.crew || '').trim(),
+    deliveryPriority:
+      String(
+        item.deliveryPriority ||
+        DEFAULT_DELIVERY_PRIORITY
+      ),
+    weightKg: String(item.weightKg || '').trim(),
     status: String(item.status || ''),
     comment: String(item.comment || '').trim()
   };
@@ -2482,6 +2773,15 @@ function validateEditData(data) {
   }
 
   if (
+    data.hub &&
+    !validateLength(data.hub, 2, 40)
+  ) {
+    showToast(uiLabels.hubLength);
+
+    return false;
+  }
+
+  if (
     data.method &&
     !validateLength(data.method, 2, 40)
   ) {
@@ -2499,6 +2799,16 @@ function validateEditData(data) {
     return false;
   }
 
+  if (!data.weightKg) {
+    showToast(uiLabels.weightKgRequired);
+    return false;
+  }
+
+  if (!isValidShipmentWeight(data.weightKg)) {
+    showToast(uiLabels.weightKgInvalid);
+    return false;
+  }
+
   if (
     data.sentDate &&
     !data.sentTime
@@ -2512,6 +2822,19 @@ function validateEditData(data) {
     !data.sentDate
   ) {
     showToast('Вкажіть дату доставки або очистіть час');
+    return false;
+  }
+
+  if (!DELIVERY_PRIORITIES.includes(data.deliveryPriority)) {
+    showToast(uiLabels.deliveryPriorityInvalid);
+    return false;
+  }
+
+  if (
+    data.status !== DEFAULT_SHIPMENT_STATUS &&
+    !data.hub
+  ) {
+    showToast(uiLabels.hubRequired);
     return false;
   }
 
@@ -2576,6 +2899,13 @@ async function saveShipmentEdit(item, details) {
         return;
       }
 
+      if (result.error === 'NOT_FOUND') {
+        showToast('Замовлення вже видалено');
+        editingShipmentId = null;
+        applyLocalShipmentDelete(item.id);
+        return;
+      }
+
       if (
         result.error === 'FORBIDDEN' ||
         result.error === 'FORBIDDEN_STATUS'
@@ -2586,7 +2916,7 @@ async function saveShipmentEdit(item, details) {
         return;
       }
 
-      showToast(result.error);
+      showToast(getShipmentValidationErrorMessage(result.error));
       return;
     }
 
@@ -2615,10 +2945,139 @@ async function saveShipmentEdit(item, details) {
   }
 }
 
+function updateDeleteReasonCounter() {
+
+  deleteReasonCounter.innerText =
+    `${deleteReasonInput.value.length} / 500`;
+}
+
+function closeDeleteShipmentModal() {
+
+  shipmentPendingDelete = null;
+
+  deleteShipmentModal.classList.add('hidden');
+  deleteModalConfirmStep.classList.remove('hidden');
+  deleteModalReasonStep.classList.add('hidden');
+  deleteModalSubmitBtn.classList.remove('loading');
+  deleteReasonInput.value = '';
+  updateDeleteReasonCounter();
+}
+
+function openDeleteShipmentModal(item) {
+
+  if (!canDeleteShipment(item)) {
+    showToast('Недостатньо прав для видалення');
+    return;
+  }
+
+  shipmentPendingDelete = item;
+
+  deleteModalSummary.innerHTML = `
+    <div><b>ID:</b> ${escapeHtml(item.id)}</div>
+    <div><b>${escapeHtml(uiLabels.destination)}:</b> ${escapeHtml(item.destination || 'Не вказано')}</div>
+  `;
+
+  deleteModalConfirmStep.classList.remove('hidden');
+  deleteModalReasonStep.classList.add('hidden');
+  deleteShipmentModal.classList.remove('hidden');
+}
+
+function showDeleteReasonStep() {
+
+  deleteModalConfirmStep.classList.add('hidden');
+  deleteModalReasonStep.classList.remove('hidden');
+  deleteReasonInput.focus();
+}
+
+async function submitDeleteShipment() {
+
+  if (!shipmentPendingDelete) {
+    closeDeleteShipmentModal();
+    return;
+  }
+
+  const reason = deleteReasonInput.value.trim();
+
+  if (
+    reason.length < 5 ||
+    reason.length > 500
+  ) {
+    showToast('Причина видалення повинна містити від 5 до 500 символів');
+    return;
+  }
+
+  deleteModalSubmitBtn.classList.add('loading');
+
+  try {
+    const result = await api(
+      'deleteShipment',
+      {
+        id: shipmentPendingDelete.id,
+        reason
+      }
+    );
+
+    if (!result.success) {
+      if (result.error === 'ADMIN_REQUIRED') {
+        showToast('Недостатньо прав для видалення');
+        return;
+      }
+
+      if (result.error === 'deleteReason length is invalid') {
+        showToast('Причина видалення повинна містити від 5 до 500 символів');
+        return;
+      }
+
+      if (result.error === 'NOT_FOUND') {
+        showToast('Замовлення вже не знайдено. Оновлюю список');
+        closeDeleteShipmentModal();
+        await loadShipments();
+        return;
+      }
+
+      if (result.error === 'deleted shipments sheet is missing') {
+        showToast('Не знайдено таблицю deleted_shipments');
+        return;
+      }
+
+      if (result.error === 'DELETE_ONLY_NEW') {
+        showToast('Видаляти можна тільки замовлення зі статусом Нова або На хабі');
+        return;
+      }
+
+      showToast(result.error);
+      return;
+    }
+
+    closeDeleteShipmentModal();
+    editingShipmentId = null;
+    showToast('Замовлення видалено', 'success');
+    applyLocalShipmentDelete(
+      result.data.id,
+      result.data.version
+    );
+
+  } catch (e) {
+    console.error(e);
+
+    showToast(
+      getRequestErrorMessage(
+        'Помилка видалення замовлення'
+      )
+    );
+
+  } finally {
+    deleteModalSubmitBtn.classList.remove('loading');
+  }
+}
+
 function renderShipments(items) {
 
   const container =
     document.getElementById('shipments');
+  const hasSearchQuery = Boolean(
+    normalizeShipmentSearchValue(shipmentSearchQuery)
+  );
 
   container.innerHTML = '';
 
@@ -2632,12 +3091,18 @@ function renderShipments(items) {
         </div>
 
         <div class="empty-title">
-          Список порожній
+          ${
+            hasSearchQuery
+              ? 'Нічого не знайдено'
+              : 'Список порожній'
+          }
         </div>
 
         <div class="empty-text">
           ${
-            activeListFilter
+            hasSearchQuery
+              ? 'За вашим пошуком замовлень немає'
+              : activeListFilter
               ? 'За вибраним результатом заявок немає'
               : 'У вас ще немає відправок'
           }
@@ -2662,9 +3127,24 @@ function createShipmentCard(
   options = {}
 ) {
   const div = document.createElement('div');
+  const deleteButton = canDeleteShipment(item)
+    ? `
+      <button
+        type="button"
+        class="card-delete-btn"
+        aria-label="Видалити замовлення"
+        title="Видалити замовлення"
+      >
+        🗑
+      </button>
+    `
+    : '';
 
   div.className = [
     'card',
+    item.deliveryPriority === 'Терміновий'
+      ? 'card-priority-urgent'
+      : '',
     options.highlight ? 'card-updated' : ''
   ]
     .filter(Boolean)
@@ -2731,6 +3211,8 @@ function createShipmentCard(
       </div>
 
       <div class="card-details"></div>
+
+      ${deleteButton}
     `;
 
     const toggle =
@@ -2739,13 +3221,24 @@ function createShipmentCard(
     const details =
       div.querySelector('.card-details');
 
+    const deleteBtn =
+      div.querySelector('.card-delete-btn');
+
     let opened = Boolean(options.opened);
 
     details.innerHTML = renderDetailsView(item);
 
     if (opened) {
+      div.classList.add('card-details-expanded');
       details.classList.add('details-open');
       toggle.innerText = 'Сховати ⌃';
+    }
+
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', event => {
+        event.stopPropagation();
+        openDeleteShipmentModal(item);
+      });
     }
 
     toggle.addEventListener('click', () => {
@@ -2754,6 +3247,7 @@ function createShipmentCard(
 
       if (opened) {
 
+        div.classList.add('card-details-expanded');
         details.classList.add('details-open');
 
         toggle.innerText =
@@ -2772,6 +3266,7 @@ function createShipmentCard(
           );
         }
 
+        div.classList.remove('card-details-expanded');
         details.classList.remove('details-open');
 
         toggle.innerText =
@@ -2785,6 +3280,11 @@ function createShipmentCard(
         editingShipmentId = item.id;
         details.innerHTML = renderEditForm(item);
         setupEditChangeTracking(item, details);
+        return;
+      }
+
+      if (event.target.classList.contains('delete-shipment-btn')) {
+        openDeleteShipmentModal(item);
         return;
       }
 
@@ -2847,7 +3347,9 @@ function renderIncrementalShipmentChanges(changedIds) {
 
   const container =
     document.getElementById('shipments');
-  const visibleItems = getVisibleShipments();
+  const baseVisibleItems = getVisibleShipments();
+  const visibleItems =
+    getSearchFilteredShipments(baseVisibleItems);
   const visibleIds = new Set(
     visibleItems.map(item => String(item.id))
   );
@@ -2932,6 +3434,49 @@ function renderIncrementalShipmentChanges(changedIds) {
   ) {
     renderShipments([]);
   }
+
+  updateShipmentSearchCount(
+    visibleItems.length,
+    baseVisibleItems.length
+  );
+}
+
+function renderIncrementalShipmentDeletions(deletedIds) {
+
+  const container =
+    document.getElementById('shipments');
+  const deletedIdSet = new Set(
+    deletedIds.map(id => String(id))
+  );
+
+  deletedIdSet.forEach(id => {
+    const card = Array.from(
+      container.querySelectorAll('.card[data-shipment-id]')
+    ).find(item => {
+      return item.dataset.shipmentId === id;
+    });
+
+    if (card) {
+      card.remove();
+    }
+  });
+
+  const baseVisibleItems = getVisibleShipments();
+  const visibleItems =
+    getSearchFilteredShipments(baseVisibleItems);
+
+  updateListFilterNotice();
+  updateShipmentSearchCount(
+    visibleItems.length,
+    baseVisibleItems.length
+  );
+
+  if (
+    !visibleItems.length &&
+    !container.querySelector('.empty-state')
+  ) {
+    renderShipments([]);
+  }
 }
 
 document.getElementById('createBtn')
@@ -2960,6 +3505,22 @@ document
   });
 
 loadBtn.addEventListener('click', reloadAppData);
+
+shipmentSearchToggle.addEventListener(
+  'click',
+  toggleShipmentSearch
+);
+
+shipmentSearchInput.addEventListener('input', () => {
+  shipmentSearchQuery = shipmentSearchInput.value;
+  renderVisibleShipments();
+});
+
+shipmentSearchInput.addEventListener('keydown', event => {
+  if (event.key === 'Escape') {
+    setShipmentSearchOpened(false);
+  }
+});
 
 addDashboardFilterBtn.addEventListener('click', () => {
   addDashboardFilter('status', DEFAULT_SHIPMENT_STATUS);
@@ -3001,6 +3562,46 @@ exportDashboardBtn.addEventListener(
 );
 
 clearListFilterBtn.addEventListener('click', clearDashboardListFilter);
+
+deleteModalCancelBtn.addEventListener(
+  'click',
+  closeDeleteShipmentModal
+);
+
+deleteModalNextBtn.addEventListener(
+  'click',
+  showDeleteReasonStep
+);
+
+deleteModalBackBtn.addEventListener('click', () => {
+  deleteModalConfirmStep.classList.remove('hidden');
+  deleteModalReasonStep.classList.add('hidden');
+});
+
+deleteModalSubmitBtn.addEventListener(
+  'click',
+  submitDeleteShipment
+);
+
+deleteReasonInput.addEventListener(
+  'input',
+  updateDeleteReasonCounter
+);
+
+deleteShipmentModal.addEventListener('click', event => {
+  if (event.target === deleteShipmentModal) {
+    closeDeleteShipmentModal();
+  }
+});
+
+document.addEventListener('keydown', event => {
+  if (
+    event.key === 'Escape' &&
+    !deleteShipmentModal.classList.contains('hidden')
+  ) {
+    closeDeleteShipmentModal();
+  }
+});
 
 const scrollTopBtn = document.getElementById('scrollTopBtn');
 
