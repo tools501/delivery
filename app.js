@@ -2,6 +2,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbz7tPrVsKyZ85-ga8iplEC7
 const HUB_API_URL = 'https://script.google.com/macros/s/AKfycbyAHpUfM1RrPJbamCVcc5rGhUgRKoLRKSULBGnCNGLyCSaFU5lp7SX2Ge1Wwv9YEV5-Sg/exec';
 const SHARED_AUTH_TOKEN_KEY = 'tools501_google_id_token';
 const HUB_URL = '/hub/';
+const APP_VERSION = '1.1.1';
 
 let authToken = null;
 let currentUser = null;
@@ -92,6 +93,9 @@ const DASHBOARD_FILTERS = [
     key: 'unit'
   },
   {
+    key: 'hub'
+  },
+  {
     key: 'crew'
   },
   {
@@ -116,6 +120,9 @@ const toggleFormIcon =
 
 const loadBtn =
   document.getElementById('loadBtn');
+
+document.getElementById('loginVersion')
+  .innerText = `v${APP_VERSION}`;
 
 const shipmentSearchToggle =
   document.getElementById('shipmentSearchToggle');
@@ -944,6 +951,21 @@ function canEditShipment(item) {
   return Boolean(currentUser);
 }
 
+function bindShipmentWeightInput(input) {
+  if (!input) {
+    return;
+  }
+
+  input.addEventListener('input', () => {
+    const sanitized =
+      sanitizeShipmentWeightInput(input.value);
+
+    if (input.value !== sanitized) {
+      input.value = sanitized;
+    }
+  });
+}
+
 function buildOptions(options, selectedValue) {
 
   const values = [...options];
@@ -1025,6 +1047,9 @@ function applyUiLabels() {
   const dashboardUnitOption =
     dashboardGroupBy.querySelector('option[value="unit"]');
 
+  const dashboardHubOption =
+    dashboardGroupBy.querySelector('option[value="hub"]');
+
   const dashboardCrewOption =
     dashboardGroupBy.querySelector('option[value="crew"]');
 
@@ -1036,6 +1061,10 @@ function applyUiLabels() {
 
   if (dashboardUnitOption) {
     dashboardUnitOption.innerText = uiLabels.unit;
+  }
+
+  if (dashboardHubOption) {
+    dashboardHubOption.innerText = uiLabels.hub;
   }
 
   if (dashboardCrewOption) {
@@ -1945,227 +1974,6 @@ function clearDashboardListFilter() {
   renderVisibleShipments();
 }
 
-function formatDashboardExportDate(value) {
-
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(`${value}T00:00:00`);
-
-  if (isNaN(date.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat('uk-UA', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric'
-  }).format(date);
-}
-
-function buildDashboardExportRows(items, breakdown) {
-
-  const groupLabel =
-    getDashboardFilterLabel(dashboardGroupBy.value);
-  const period =
-    `${formatDashboardExportDate(dashboardFrom.value)} - ${formatDashboardExportDate(dashboardTo.value)}`;
-
-  return [
-    ['Період', period],
-    [],
-    [groupLabel, 'Кількість'],
-    ...breakdown.map(item => [
-      item.label,
-      item.count
-    ]),
-    [],
-    ['Всього', items.length]
-  ];
-}
-
-function applyDashboardExportStyles(
-  worksheet,
-  breakdownLength
-) {
-
-  const border = {
-    top: {
-      style: 'thin',
-      color: {
-        rgb: '000000'
-      }
-    },
-    right: {
-      style: 'thin',
-      color: {
-        rgb: '000000'
-      }
-    },
-    bottom: {
-      style: 'thin',
-      color: {
-        rgb: '000000'
-      }
-    },
-    left: {
-      style: 'thin',
-      color: {
-        rgb: '000000'
-      }
-    }
-  };
-  const headerFill = {
-    patternType: 'solid',
-    fgColor: {
-      rgb: 'D9D9D9'
-    }
-  };
-  const headerFont = {
-    bold: true
-  };
-  const tableHeaderRow = 3;
-  const tableLastRow =
-    tableHeaderRow + breakdownLength;
-  const totalRow =
-    tableLastRow + 2;
-
-  function styleCell(
-    row,
-    column,
-    style
-  ) {
-
-    const address = XLSX.utils.encode_cell({
-      r: row - 1,
-      c: column - 1
-    });
-
-    if (!worksheet[address]) {
-      worksheet[address] = {
-        t: 's',
-        v: ''
-      };
-    }
-
-    worksheet[address].s = {
-      ...(worksheet[address].s || {}),
-      ...style
-    };
-  }
-
-  function styleRange(
-    startRow,
-    endRow,
-    style
-  ) {
-
-    for (let row = startRow; row <= endRow; row++) {
-      styleCell(row, 1, style);
-      styleCell(row, 2, style);
-    }
-  }
-
-  styleRange(1, 1, {
-    border
-  });
-
-  styleRange(tableHeaderRow, tableLastRow, {
-    border
-  });
-
-  styleRange(totalRow, totalRow, {
-    border,
-    fill: headerFill,
-    font: headerFont
-  });
-
-  styleRange(tableHeaderRow, tableHeaderRow, {
-    border,
-    fill: headerFill,
-    font: headerFont
-  });
-
-  for (let row = tableHeaderRow + 1; row <= tableLastRow; row++) {
-    styleCell(row, 2, {
-      alignment: {
-        horizontal: 'right'
-      }
-    });
-  }
-
-  styleCell(totalRow, 2, {
-    alignment: {
-      horizontal: 'right'
-    },
-    border,
-    fill: headerFill,
-    font: headerFont
-  });
-}
-
-function getDashboardExportFileName() {
-
-  const date = new Date();
-  const stamp = [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, '0'),
-    String(date.getDate()).padStart(2, '0'),
-    String(date.getHours()).padStart(2, '0'),
-    String(date.getMinutes()).padStart(2, '0')
-  ].join('');
-
-  return `delivery-${stamp}.xlsx`;
-}
-
-function exportDashboardToExcel() {
-
-  if (typeof XLSX === 'undefined') {
-    showToast('Не вдалося завантажити Excel');
-    return;
-  }
-
-  const items = filterDashboardShipments();
-
-  if (!items) {
-    return;
-  }
-
-  const breakdown = getDashboardBreakdown(items);
-  const rows = buildDashboardExportRows(
-    items,
-    breakdown
-  );
-  const worksheet = XLSX.utils.aoa_to_sheet(rows);
-
-  applyDashboardExportStyles(
-    worksheet,
-    breakdown.length
-  );
-
-  worksheet['!cols'] = [
-    {
-      wch: 28
-    },
-    {
-      wch: 22
-    }
-  ];
-
-  const workbook = XLSX.utils.book_new();
-
-  XLSX.utils.book_append_sheet(
-    workbook,
-    worksheet,
-    'Статистика'
-  );
-
-  XLSX.writeFile(
-    workbook,
-    getDashboardExportFileName()
-  );
-}
-
 function getDashboardBreakdown(items) {
 
   const groupKey = dashboardGroupBy.value;
@@ -2198,11 +2006,37 @@ function getDashboardBreakdown(items) {
     });
 }
 
+function getShipmentWeightValue(item) {
+  const value = Number(
+    String(item && item.weightKg || '').trim()
+  );
+
+  return Number.isFinite(value)
+    ? value
+    : 0;
+}
+
+function getTotalShipmentWeight(items) {
+  return items.reduce((total, item) => {
+    return total + getShipmentWeightValue(item);
+  }, 0);
+}
+
+function formatShipmentWeightTotal(value) {
+  return new Intl.NumberFormat(
+    'uk-UA',
+    {
+      maximumFractionDigits: 0
+    }
+  ).format(value);
+}
+
 function renderDashboardChart(items) {
 
   const breakdown = getDashboardBreakdown(items);
   const groupKey = dashboardGroupBy.value;
   const total = items.length;
+  const totalWeight = getTotalShipmentWeight(items);
   const shouldShowZeroValues =
     dashboardShowZeroValues.checked;
   const shouldScrollBars =
@@ -2232,6 +2066,9 @@ function renderDashboardChart(items) {
       aria-label="Показати всі замовлення з дашборду"
     >
       <span>${total}</span>
+      <span class="dashboard-total-weight">
+        (${escapeHtml(formatShipmentWeightTotal(totalWeight))} кг)
+      </span>
       <small>
         заявок, групування: ${escapeHtml(
           getDashboardFilterLabel(groupKey).toLowerCase()
@@ -2732,6 +2569,10 @@ function getItemEditData(item) {
 }
 
 function setupEditChangeTracking(item, details) {
+
+  bindShipmentWeightInput(
+    details.querySelector('.edit-weight-kg')
+  );
 
   const initialData = JSON.stringify(
     getItemEditData(item)
@@ -3481,6 +3322,10 @@ function renderIncrementalShipmentDeletions(deletedIds) {
 
 document.getElementById('createBtn')
   .addEventListener('click', createShipment);
+
+bindShipmentWeightInput(
+  document.getElementById('weightKg')
+);
 
 document
   .getElementById('twoFactorSubmitBtn')
