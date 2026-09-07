@@ -2,7 +2,8 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbz7tPrVsKyZ85-ga8iplEC7
 const HUB_API_URL = 'https://script.google.com/macros/s/AKfycbyAHpUfM1RrPJbamCVcc5rGhUgRKoLRKSULBGnCNGLyCSaFU5lp7SX2Ge1Wwv9YEV5-Sg/exec';
 const SHARED_AUTH_TOKEN_KEY = 'tools501_google_id_token';
 const HUB_URL = '/hub/';
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.2.0';
+const TWO_FACTOR_CHECK_ENABLED = false;
 
 let authToken = null;
 let currentUser = null;
@@ -30,16 +31,70 @@ let shipmentOptions = {
 };
 
 const REQUIRED_UI_LABEL_KEYS = [
+  'id',
+  'createdAt',
   'unit',
   'destination',
   'hub',
   'method',
   'crew',
+  'sentAt',
+  'status',
   'deliveryPriority',
   'weightKg',
   'comment',
+  'createdByName',
+  'updatedByName',
+  'notSpecified',
   'createRequest',
   'shipmentsTitle',
+  'dashboardTitle',
+  'dashboardBuilderTitle',
+  'dashboardPeriodInvalid',
+  'dashboardEmpty',
+  'dashboardShowAllAria',
+  'dashboardItemsText',
+  'dashboardShowItemAria',
+  'dashboardAllResult',
+  'listFilterPrefix',
+  'searchFoundPrefix',
+  'searchTotalPrefix',
+  'weightUnit',
+  'removeDashboardFilterAria',
+  'emptySearchTitle',
+  'emptyListTitle',
+  'emptySearchText',
+  'emptyDashboardText',
+  'emptyListText',
+  'searchByDestination',
+  'searchByDestinationAria',
+  'deleteShipmentTitle',
+  'deleteShipmentReasonTitle',
+  'deleteShipmentReasonText',
+  'deleteShipmentReasonPlaceholder',
+  'deleteShipmentSubmit',
+  'deleteShipmentAria',
+  'staleEditWarning',
+  'reloadStaleEdit',
+  'deliveryTimeLabel',
+  'deliveryTimeAria',
+  'deliveryTimeRequired',
+  'deliveryDateRequired',
+  'sentAtRequiredForStatus',
+  'updateConflict',
+  'shipmentAlreadyDeleted',
+  'editForbidden',
+  'saveSuccess',
+  'saveError',
+  'deleteForbidden',
+  'deleteReasonLength',
+  'deleteNotFound',
+  'deletedShipmentsSheetMissing',
+  'deleteOnlyNew',
+  'deleteSuccess',
+  'deleteError',
+  'createError',
+  'exportLoadError',
   'chooseUnit',
   'chooseDestination',
   'chooseHub',
@@ -53,6 +108,7 @@ const REQUIRED_UI_LABEL_KEYS = [
   'methodLength',
   'crewLength',
   'deliveryPriorityInvalid',
+  'deliveryPriorityForbidden',
   'weightKgRequired',
   'weightKgInvalid',
   'commentRequired',
@@ -77,6 +133,12 @@ const DELETABLE_SHIPMENT_STATUSES = [
   DEFAULT_SHIPMENT_STATUS,
   HUB_SHIPMENT_STATUS
 ];
+const SENT_AT_REQUIRED_STATUSES = [
+  'Доставлено',
+  'Отримано',
+  'Частково отримано',
+  'Неотримано'
+];
 const DEFAULT_DELIVERY_PRIORITY = 'Стандартний';
 const DELIVERY_PRIORITIES = [
   DEFAULT_DELIVERY_PRIORITY,
@@ -84,6 +146,7 @@ const DELIVERY_PRIORITIES = [
 ];
 const DASHBOARD_ALL_VALUE = 'Всі';
 const API_TIMEOUT_MS = 30 * 1000;
+const TOKEN_EXPIRY_SAFETY_MS = 2 * 60 * 1000;
 
 const DASHBOARD_FILTERS = [
   {
@@ -286,11 +349,29 @@ function getTokenExpirationMs(token) {
   }
 }
 
+function getSafeTokenExpirationMs(token) {
+
+  const expirationMs = getTokenExpirationMs(token);
+
+  if (!expirationMs) {
+    return 0;
+  }
+
+  return expirationMs - TOKEN_EXPIRY_SAFETY_MS;
+}
+
+function isTokenActive(token) {
+
+  return getSafeTokenExpirationMs(token) > Date.now();
+}
+
 function expireSession() {
 
   sessionExpired = true;
+  authToken = null;
   clearInterval(sessionCountdownTimer);
   stopVersionTimer();
+  clearSharedAuthToken();
 
   document
     .getElementById('sessionExpired')
@@ -308,7 +389,7 @@ function renewSession() {
   stopVersionTimer();
   clearSharedAuthToken();
 
-  window.location.href = HUB_URL;
+  showLoginScreen();
 }
 
 function startSessionTimer(token) {
@@ -319,7 +400,7 @@ function startSessionTimer(token) {
 
   sessionExpired = false;
   sessionExpiresAt =
-    getTokenExpirationMs(token) ||
+    getSafeTokenExpirationMs(token) ||
     Date.now() + 55 * 60 * 1000;
 
   document
@@ -392,14 +473,40 @@ async function handleCredentialResponse(response) {
 
 function getSharedAuthToken() {
 
+  let token = null;
+
   try {
-    return sessionStorage.getItem(SHARED_AUTH_TOKEN_KEY);
+    token = localStorage.getItem(SHARED_AUTH_TOKEN_KEY);
   } catch (e) {
+    console.error(e);
+  }
+
+  if (!token) {
+    try {
+      token = sessionStorage.getItem(SHARED_AUTH_TOKEN_KEY);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  if (
+    token &&
+    !isTokenActive(token)
+  ) {
+    clearSharedAuthToken();
     return null;
   }
+
+  return token;
 }
 
 function setSharedAuthToken(token) {
+
+  try {
+    localStorage.setItem(SHARED_AUTH_TOKEN_KEY, token);
+  } catch (e) {
+    console.error(e);
+  }
 
   try {
     sessionStorage.setItem(SHARED_AUTH_TOKEN_KEY, token);
@@ -409,6 +516,12 @@ function setSharedAuthToken(token) {
 }
 
 function clearSharedAuthToken() {
+
+  try {
+    localStorage.removeItem(SHARED_AUTH_TOKEN_KEY);
+  } catch (e) {
+    console.error(e);
+  }
 
   try {
     sessionStorage.removeItem(SHARED_AUTH_TOKEN_KEY);
@@ -462,6 +575,9 @@ function showTwoFactorScreen(token, options) {
   };
 
   document.getElementById('loader')
+    .classList.add('hidden');
+
+  document.getElementById('authCheckingBlock')
     .classList.add('hidden');
 
   document.getElementById('loginBlock')
@@ -518,6 +634,12 @@ async function ensureTwoFactorAccess(token, options) {
 
   showTwoFactorScreen(token, options);
   return false;
+}
+
+function hideAuthCheckingScreen() {
+
+  document.getElementById('authCheckingBlock')
+    .classList.add('hidden');
 }
 
 async function submitTwoFactorCode() {
@@ -594,7 +716,18 @@ async function authenticateWithToken(
   options = {}
 ) {
 
+  if (!isTokenActive(token)) {
+    authToken = null;
+    clearSharedAuthToken();
+    hideAuthCheckingScreen();
+    showLoginScreen();
+
+    return false;
+  }
+
   authToken = token;
+
+  hideAuthCheckingScreen();
 
   document.getElementById('loginBlock')
     .classList.add('hidden');
@@ -608,14 +741,17 @@ async function authenticateWithToken(
   hideTwoFactorScreen();
 
   try {
-    if (!options.skipTwoFactor) {
+    if (
+      TWO_FACTOR_CHECK_ENABLED &&
+      !options.skipTwoFactor
+    ) {
       const canContinue = await ensureTwoFactorAccess(
         token,
         options
       );
 
       if (!canContinue) {
-        return;
+        return false;
       }
     }
   } catch (e) {
@@ -632,13 +768,25 @@ async function authenticateWithToken(
       getRequestErrorMessage('Не вдалося перевірити 2FA')
     );
 
-    return;
+    return false;
   }
 
   let result;
 
   try {
     result = await api('bootstrap');
+
+    if (
+      result &&
+      result.success &&
+      result.data &&
+      result.data.timing
+    ) {
+      console.info(
+        '[Delivery bootstrap timing]',
+        result.data.timing
+      );
+    }
   } catch (e) {
     console.error(e);
 
@@ -650,7 +798,7 @@ async function authenticateWithToken(
 
     showLoginScreen();
 
-    return;
+    return false;
   }
 
   if (!result.success) {
@@ -664,12 +812,10 @@ async function authenticateWithToken(
     document.getElementById('deniedScreen')
       .classList.remove('hidden');
 
-    return;
+    return false;
   }
 
-  if (options.persist) {
-    setSharedAuthToken(token);
-  }
+  setSharedAuthToken(token);
 
   currentUser = result.data.user;
 
@@ -698,6 +844,34 @@ async function authenticateWithToken(
 
   document.getElementById('app')
     .classList.remove('hidden');
+
+  logAuthStatsInBackground();
+
+  return true;
+}
+
+function logAuthStatsInBackground() {
+
+  api('logAuthStats')
+    .then(result => {
+      if (
+        result &&
+        result.success &&
+        result.data &&
+        result.data.timing
+      ) {
+        console.info(
+          '[Delivery auth stats timing]',
+          result.data.timing
+        );
+      }
+    })
+    .catch(e => {
+      console.warn(
+        '[Delivery auth stats failed]',
+        e
+      );
+    });
 }
 
 async function trySharedSession() {
@@ -705,10 +879,25 @@ async function trySharedSession() {
   const token = getSharedAuthToken();
 
   if (!token) {
-    return;
+    return false;
   }
 
-  await authenticateWithToken(token);
+  return authenticateWithToken(token);
+}
+
+async function initializeAuth() {
+
+  const restored = await trySharedSession();
+
+  if (
+    !restored &&
+    !pendingTwoFactorAuth &&
+    !currentUser &&
+    document.getElementById('deniedScreen')
+      .classList.contains('hidden')
+  ) {
+    showLoginScreen();
+  }
 }
 
 async function api(
@@ -751,6 +940,9 @@ async function api(
     result.error === 'AUTH_REQUIRED'
   ) {
 
+    authToken = null;
+    clearSharedAuthToken();
+
     document
       .getElementById('sessionExpired')
       .classList.remove('hidden');
@@ -769,6 +961,7 @@ function showLoginScreen() {
     .classList.add('hidden');
 
   hideTwoFactorScreen();
+  hideAuthCheckingScreen();
 
   document.getElementById('loader')
     .classList.add('hidden');
@@ -777,6 +970,9 @@ function showLoginScreen() {
     .classList.add('hidden');
 
   document.getElementById('sessionExpired')
+    .classList.add('hidden');
+
+  document.getElementById('sessionWarning')
     .classList.add('hidden');
 
   document.getElementById('loginBlock')
@@ -907,9 +1103,10 @@ async function syncShipmentChanges() {
 function getShipmentValidationErrorMessage(error) {
   const messages = {
     'deliveryPriority is invalid': uiLabels.deliveryPriorityInvalid,
-    FORBIDDEN_PRIORITY: 'Тільки admin може змінювати пріоритет доставки',
+    FORBIDDEN_PRIORITY: uiLabels.deliveryPriorityForbidden,
     'hub is required': uiLabels.hubRequired,
     'hub length is invalid': uiLabels.hubLength,
+    'sentAt is required': uiLabels.sentAtRequiredForStatus,
     'weightKg is required': uiLabels.weightKgRequired,
     'weightKg is invalid': uiLabels.weightKgInvalid
   };
@@ -1040,12 +1237,47 @@ function applyUiLabels() {
   document.querySelector('.shipments-title').innerText =
     uiLabels.shipmentsTitle;
 
+  document.querySelector('.dashboard-title').innerText =
+    uiLabels.dashboardTitle;
+
+  document.querySelector('.dashboard-subtitle').innerText =
+    uiLabels.dashboardBuilderTitle;
+
+  shipmentSearchToggle.setAttribute(
+    'aria-label',
+    uiLabels.searchByDestinationAria
+  );
+
+  shipmentSearchInput.placeholder =
+    uiLabels.searchByDestination;
+
+  document.querySelector(
+    '#deleteModalConfirmStep .delete-modal-title'
+  ).innerText = uiLabels.deleteShipmentTitle;
+
+  document.querySelector(
+    '#deleteModalReasonStep .delete-modal-title'
+  ).innerText = uiLabels.deleteShipmentReasonTitle;
+
+  document.querySelector(
+    '#deleteModalReasonStep .delete-modal-text'
+  ).innerText = uiLabels.deleteShipmentReasonText;
+
+  deleteReasonInput.placeholder =
+    uiLabels.deleteShipmentReasonPlaceholder;
+
+  deleteModalSubmitBtn.innerText =
+    uiLabels.deleteShipmentSubmit;
+
   if (!formOpened) {
     toggleFormText.innerText = uiLabels.createRequest;
   }
 
   const dashboardUnitOption =
     dashboardGroupBy.querySelector('option[value="unit"]');
+
+  const dashboardStatusOption =
+    dashboardGroupBy.querySelector('option[value="status"]');
 
   const dashboardHubOption =
     dashboardGroupBy.querySelector('option[value="hub"]');
@@ -1058,6 +1290,10 @@ function applyUiLabels() {
 
   const dashboardDestinationOption =
     dashboardGroupBy.querySelector('option[value="destination"]');
+
+  if (dashboardStatusOption) {
+    dashboardStatusOption.innerText = uiLabels.status;
+  }
 
   if (dashboardUnitOption) {
     dashboardUnitOption.innerText = uiLabels.unit;
@@ -1179,7 +1415,9 @@ async function createShipment() {
 
   const unit = document.getElementById('unit').value.trim();
   const destination = document.getElementById('destination').value.trim();
-  const weightKg = document.getElementById('weightKg').value.trim();
+  const weightInput = document.getElementById('weightKg');
+  const weightKg =
+    normalizeShipmentWeightValue(weightInput.value);
   const comment = document.getElementById('comment').value.trim();
 
   if (!unit) {
@@ -1213,6 +1451,8 @@ async function createShipment() {
     showToast(uiLabels.weightKgInvalid);
     return;
   }
+
+  weightInput.value = weightKg;
 
   if (!comment) {
     showToast(uiLabels.commentRequired);
@@ -1268,7 +1508,7 @@ async function createShipment() {
 
     showToast(
       getRequestErrorMessage(
-        'Помилка створення замовлення'
+        uiLabels.createError
       )
     );
 
@@ -1481,7 +1721,7 @@ function getDashboardFilterLabel(key) {
   }
 
   if (key === 'status') {
-    return 'Статус';
+    return uiLabels.status;
   }
 
   return key;
@@ -1671,7 +1911,7 @@ function addDashboardFilter(
     <button
       type="button"
       class="dashboard-remove-filter"
-      aria-label="Прибрати параметр"
+      aria-label="${escapeHtml(uiLabels.removeDashboardFilterAria)}"
     >
       ×
     </button>
@@ -1779,7 +2019,7 @@ function filterDashboardShipments() {
     isNaN(toDate.getTime()) ||
     fromDate > toDate
   ) {
-    showToast('Перевірте період статистики');
+    showToast(uiLabels.dashboardPeriodInvalid);
     return null;
   }
 
@@ -1805,7 +2045,7 @@ function getDashboardGroupItems(groupKey, groupValue) {
   }
 
   return filteredItems.filter(item => {
-    return String(item[groupKey] || 'Не вказано') === groupValue;
+    return String(item[groupKey] || uiLabels.notSpecified) === groupValue;
   });
 }
 
@@ -1818,7 +2058,7 @@ function updateListFilterNotice() {
   }
 
   listFilterText.innerText =
-    `Показано за статистикою: ${activeListFilter.label}`;
+    `${uiLabels.listFilterPrefix}: ${activeListFilter.label}`;
 
   listFilterNotice.classList.remove('hidden');
 }
@@ -1869,12 +2109,12 @@ function updateShipmentSearchCount(
 
   if (query) {
     shipmentSearchCount.innerText =
-      `Знайдено: ${visibleCount} з ${totalCount}`;
+      `${uiLabels.searchFoundPrefix}: ${visibleCount} з ${totalCount}`;
     return;
   }
 
   shipmentSearchCount.innerText =
-    `Всього: ${totalCount}`;
+    `${uiLabels.searchTotalPrefix}: ${totalCount}`;
 }
 
 function renderVisibleShipments() {
@@ -1955,7 +2195,7 @@ function applyDashboardTotalListFilter() {
 
   activeListFilter = {
     type: 'dashboardTotal',
-    label: 'увесь результат дашборду'
+    label: uiLabels.dashboardAllResult
   };
 
   renderVisibleShipments();
@@ -1983,7 +2223,7 @@ function getDashboardBreakdown(items) {
     dashboardShowZeroValues.checked;
 
   items.forEach(item => {
-    const value = String(item[groupKey] || 'Не вказано');
+    const value = String(item[groupKey] || uiLabels.notSpecified);
 
     counts[value] = (counts[value] || 0) + 1;
   });
@@ -2053,7 +2293,7 @@ function renderDashboardChart(items) {
   ) {
     return `
       <div class="dashboard-empty">
-        За вибраними параметрами заявок немає
+        ${escapeHtml(uiLabels.dashboardEmpty)}
       </div>
     `;
   }
@@ -2063,14 +2303,14 @@ function renderDashboardChart(items) {
       class="dashboard-total"
       tabindex="0"
       role="button"
-      aria-label="Показати всі замовлення з дашборду"
+      aria-label="${escapeHtml(uiLabels.dashboardShowAllAria)}"
     >
       <span>${total}</span>
       <span class="dashboard-total-weight">
-        (${escapeHtml(formatShipmentWeightTotal(totalWeight))} кг)
+        (${escapeHtml(formatShipmentWeightTotal(totalWeight))} ${escapeHtml(uiLabels.weightUnit)})
       </span>
       <small>
-        заявок, групування: ${escapeHtml(
+        ${escapeHtml(uiLabels.dashboardItemsText)}: ${escapeHtml(
           getDashboardFilterLabel(groupKey).toLowerCase()
         )}
       </small>
@@ -2085,7 +2325,7 @@ function renderDashboardChart(items) {
             data-group-value="${escapeHtml(item.label)}"
             tabindex="0"
             role="button"
-            aria-label="Показати замовлення: ${escapeHtml(item.label)}"
+            aria-label="${escapeHtml(uiLabels.dashboardShowItemAria)}: ${escapeHtml(item.label)}"
           >
             <div class="dashboard-bar-label">
               ${escapeHtml(item.label)}
@@ -2264,6 +2504,20 @@ function getCardStatusBadgeClass(status) {
   return '';
 }
 
+function renderDetailsValue(value) {
+  const normalized = String(value || '').trim();
+
+  if (!normalized) {
+    return `
+      <span class="details-empty-value">
+        ${escapeHtml(uiLabels.notSpecified)}
+      </span>
+    `;
+  }
+
+  return escapeHtml(normalized);
+}
+
 function renderDetailsView(item) {
 
   const editButton = canEditShipment(item)
@@ -2301,27 +2555,27 @@ function renderDetailsView(item) {
     </div>
 
     <div>
-      <b>${escapeHtml(uiLabels.unit)}:</b> ${escapeHtml(item.unit || 'Не вказано')}
+      <b>${escapeHtml(uiLabels.unit)}:</b> ${renderDetailsValue(item.unit)}
     </div>
 
     <div>
-      <b>Створення:</b> ${escapeHtml(item.createdAt)}
+      <b>${escapeHtml(uiLabels.createdAt)}:</b> ${escapeHtml(item.createdAt)}
     </div>
 
     <div>
-      <b>${escapeHtml(uiLabels.hub)}:</b> ${escapeHtml(item.hub || 'Не вказано')}
+      <b>${escapeHtml(uiLabels.hub)}:</b> ${renderDetailsValue(item.hub)}
     </div>
   
     <div>
-      <b>${escapeHtml(uiLabels.crew)}:</b> ${escapeHtml(item.crew || 'Не вказано')}
+      <b>${escapeHtml(uiLabels.crew)}:</b> ${renderDetailsValue(item.crew)}
     </div>
 
     <div>
-      <b>${escapeHtml(uiLabels.method)}:</b> ${escapeHtml(item.method || 'Не вказано')}
+      <b>${escapeHtml(uiLabels.method)}:</b> ${renderDetailsValue(item.method)}
     </div>
 
     <div>
-      <b>Дата доставки:</b> ${escapeHtml(item.sentAt || 'Не вказано')}
+      <b>${escapeHtml(uiLabels.sentAt)}:</b> ${renderDetailsValue(item.sentAt)}
     </div>
 
     <div>
@@ -2329,15 +2583,15 @@ function renderDetailsView(item) {
     </div>
   
     <div>
-      <b>Створив замовлення:</b> ${escapeHtml(item.name)}
+      <b>${escapeHtml(uiLabels.createdByName)}:</b> ${escapeHtml(item.name)}
     </div>
 
     <div>
-      <b>Змінив замовлення:</b> ${escapeHtml(item.updatedBy || 'Не вказано')}
+      <b>${escapeHtml(uiLabels.updatedByName)}:</b> ${renderDetailsValue(item.updatedBy)}
     </div>
   
     <div>
-      <b>Статус:</b>
+      <b>${escapeHtml(uiLabels.status)}:</b>
     
       <span>
         ${escapeHtml(item.status)}
@@ -2351,11 +2605,11 @@ function renderDetailsView(item) {
     <div class="details-comment">
       <b>${escapeHtml(uiLabels.comment)}:</b>
 
-      <div class="details-comment-text">${escapeHtml(item.comment || 'Не вказано')}</div>
+      <div class="details-comment-text">${renderDetailsValue(item.comment)}</div>
     </div>
 
     <div>
-      <b>${escapeHtml(uiLabels.weightKg)}:</b> ${escapeHtml(item.weightKg || 'Не вказано')}
+      <b>${escapeHtml(uiLabels.weightKg)}:</b> ${renderDetailsValue(item.weightKg)}
     </div>
 
     ${actionButtons}
@@ -2368,13 +2622,13 @@ function renderEditForm(item) {
     <div class="details-edit-form">
 
       <div class="edit-stale-warning hidden">
-        <span>Заявку змінили в іншому вікні</span>
+        <span>${escapeHtml(uiLabels.staleEditWarning)}</span>
 
         <button
           type="button"
           class="reload-stale-edit-btn"
         >
-          Завантажити актуальні дані
+          ${escapeHtml(uiLabels.reloadStaleEdit)}
         </button>
       </div>
 
@@ -2401,7 +2655,7 @@ function renderEditForm(item) {
             ${buildOptionalOptions(
               shipmentOptions.hubs,
               item.hub,
-              'Не вказано'
+              uiLabels.notSpecified
             )}
           </select>
         </div>
@@ -2415,7 +2669,7 @@ function renderEditForm(item) {
             ${buildOptionalOptions(
               shipmentOptions.crews,
               item.crew,
-              'Не вказано'
+              uiLabels.notSpecified
             )}
           </select>
         </div>
@@ -2429,7 +2683,7 @@ function renderEditForm(item) {
             ${buildOptionalOptions(
               shipmentOptions.methods,
               item.method,
-              'Не вказано'
+              uiLabels.notSpecified
             )}
           </select>
         </div>
@@ -2437,24 +2691,24 @@ function renderEditForm(item) {
 
       <div class="edit-date-time-row">
         <label class="edit-date-time-field">
-          <span>Дата доставки</span>
+          <span>${escapeHtml(uiLabels.sentAt)}</span>
 
           <input
             type="date"
             class="edit-sent-date"
             value="${formatDatePartInput(item.sentAtRaw)}"
-            aria-label="Дата доставки"
+            aria-label="${escapeHtml(uiLabels.sentAt)}"
           >
         </label>
 
         <label class="edit-date-time-field">
-          <span>Час</span>
+          <span>${escapeHtml(uiLabels.deliveryTimeLabel)}</span>
 
           <input
             type="time"
             class="edit-sent-time"
             value="${formatTimePartInput(item.sentAtRaw)}"
-            aria-label="Час доставки"
+            aria-label="${escapeHtml(uiLabels.deliveryTimeAria)}"
           >
         </label>
       </div>
@@ -2537,7 +2791,9 @@ function getEditData(details) {
     crew: details.querySelector('.edit-crew').value.trim(),
     deliveryPriority:
       details.querySelector('.edit-delivery-priority').value,
-    weightKg: details.querySelector('.edit-weight-kg').value.trim(),
+    weightKg: normalizeShipmentWeightValue(
+      details.querySelector('.edit-weight-kg').value
+    ),
     status: details.querySelector('.edit-status').value,
     comment: details.querySelector('.edit-comment').value.trim()
   };
@@ -2654,7 +2910,7 @@ function validateEditData(data) {
     data.sentDate &&
     !data.sentTime
   ) {
-    showToast('Вкажіть час доставки');
+    showToast(uiLabels.deliveryTimeRequired);
     return false;
   }
 
@@ -2662,7 +2918,15 @@ function validateEditData(data) {
     data.sentTime &&
     !data.sentDate
   ) {
-    showToast('Вкажіть дату доставки або очистіть час');
+    showToast(uiLabels.deliveryDateRequired);
+    return false;
+  }
+
+  if (
+    SENT_AT_REQUIRED_STATUSES.includes(data.status) &&
+    !data.sentDate
+  ) {
+    showToast(uiLabels.sentAtRequiredForStatus);
     return false;
   }
 
@@ -2732,7 +2996,7 @@ async function saveShipmentEdit(item, details) {
     if (!result.success) {
       if (result.error === 'CONFLICT') {
         showToast(
-          'Заявку вже змінили. Оновлюю список'
+          uiLabels.updateConflict
         );
 
         editingShipmentId = null;
@@ -2741,7 +3005,7 @@ async function saveShipmentEdit(item, details) {
       }
 
       if (result.error === 'NOT_FOUND') {
-        showToast('Замовлення вже видалено');
+        showToast(uiLabels.shipmentAlreadyDeleted);
         editingShipmentId = null;
         applyLocalShipmentDelete(item.id);
         return;
@@ -2751,7 +3015,7 @@ async function saveShipmentEdit(item, details) {
         result.error === 'FORBIDDEN' ||
         result.error === 'FORBIDDEN_STATUS'
       ) {
-        showToast('Недостатньо прав для редагування');
+        showToast(uiLabels.editForbidden);
         editingShipmentId = null;
         await loadShipments();
         return;
@@ -2762,7 +3026,7 @@ async function saveShipmentEdit(item, details) {
     }
 
     editingShipmentId = null;
-    showToast('Зміни збережено', 'success');
+    showToast(uiLabels.saveSuccess, 'success');
 
     if (result.data.shipment) {
       applyIncrementalShipmentChanges([
@@ -2777,7 +3041,7 @@ async function saveShipmentEdit(item, details) {
 
     showToast(
       getRequestErrorMessage(
-        'Помилка збереження замовлення'
+        uiLabels.saveError
       )
     );
 
@@ -2807,7 +3071,7 @@ function closeDeleteShipmentModal() {
 function openDeleteShipmentModal(item) {
 
   if (!canDeleteShipment(item)) {
-    showToast('Недостатньо прав для видалення');
+    showToast(uiLabels.deleteForbidden);
     return;
   }
 
@@ -2815,7 +3079,7 @@ function openDeleteShipmentModal(item) {
 
   deleteModalSummary.innerHTML = `
     <div><b>ID:</b> ${escapeHtml(item.id)}</div>
-    <div><b>${escapeHtml(uiLabels.destination)}:</b> ${escapeHtml(item.destination || 'Не вказано')}</div>
+    <div><b>${escapeHtml(uiLabels.destination)}:</b> ${escapeHtml(item.destination || uiLabels.notSpecified)}</div>
   `;
 
   deleteModalConfirmStep.classList.remove('hidden');
@@ -2843,7 +3107,7 @@ async function submitDeleteShipment() {
     reason.length < 5 ||
     reason.length > 500
   ) {
-    showToast('Причина видалення повинна містити від 5 до 500 символів');
+    showToast(uiLabels.deleteReasonLength);
     return;
   }
 
@@ -2860,29 +3124,29 @@ async function submitDeleteShipment() {
 
     if (!result.success) {
       if (result.error === 'ADMIN_REQUIRED') {
-        showToast('Недостатньо прав для видалення');
+        showToast(uiLabels.deleteForbidden);
         return;
       }
 
       if (result.error === 'deleteReason length is invalid') {
-        showToast('Причина видалення повинна містити від 5 до 500 символів');
+        showToast(uiLabels.deleteReasonLength);
         return;
       }
 
       if (result.error === 'NOT_FOUND') {
-        showToast('Замовлення вже не знайдено. Оновлюю список');
+        showToast(uiLabels.deleteNotFound);
         closeDeleteShipmentModal();
         await loadShipments();
         return;
       }
 
       if (result.error === 'deleted shipments sheet is missing') {
-        showToast('Не знайдено таблицю deleted_shipments');
+        showToast(uiLabels.deletedShipmentsSheetMissing);
         return;
       }
 
       if (result.error === 'DELETE_ONLY_NEW') {
-        showToast('Видаляти можна тільки замовлення зі статусом Нова або На хабі');
+        showToast(uiLabels.deleteOnlyNew);
         return;
       }
 
@@ -2892,7 +3156,7 @@ async function submitDeleteShipment() {
 
     closeDeleteShipmentModal();
     editingShipmentId = null;
-    showToast('Замовлення видалено', 'success');
+    showToast(uiLabels.deleteSuccess, 'success');
     applyLocalShipmentDelete(
       result.data.id,
       result.data.version
@@ -2903,7 +3167,7 @@ async function submitDeleteShipment() {
 
     showToast(
       getRequestErrorMessage(
-        'Помилка видалення замовлення'
+        uiLabels.deleteError
       )
     );
 
@@ -2934,18 +3198,18 @@ function renderShipments(items) {
         <div class="empty-title">
           ${
             hasSearchQuery
-              ? 'Нічого не знайдено'
-              : 'Список порожній'
+              ? uiLabels.emptySearchTitle
+              : uiLabels.emptyListTitle
           }
         </div>
 
         <div class="empty-text">
           ${
             hasSearchQuery
-              ? 'За вашим пошуком замовлень немає'
+              ? uiLabels.emptySearchText
               : activeListFilter
-              ? 'За вибраним результатом заявок немає'
-              : 'У вас ще немає відправок'
+              ? uiLabels.emptyDashboardText
+              : uiLabels.emptyListText
           }
         </div>
 
@@ -2973,8 +3237,8 @@ function createShipmentCard(
       <button
         type="button"
         class="card-delete-btn"
-        aria-label="Видалити замовлення"
-        title="Видалити замовлення"
+        aria-label="${escapeHtml(uiLabels.deleteShipmentAria)}"
+        title="${escapeHtml(uiLabels.deleteShipmentAria)}"
       >
         🗑
       </button>
@@ -3494,4 +3758,4 @@ document
     renewSession();
   });
 
-trySharedSession();
+initializeAuth();
