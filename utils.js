@@ -16,10 +16,15 @@ function isValidShipmentWeight(value) {
          number <= 1000000;
 }
 
+function normalizeShipmentWeightInput(value) {
+  return String(value || '')
+    .replace(/,/g, '.');
+}
+
 function sanitizeShipmentWeightInput(value) {
   let hasDot = false;
 
-  return String(value || '')
+  return normalizeShipmentWeightInput(value)
     .split('')
     .filter(char => {
       if (/\d/.test(char)) {
@@ -37,6 +42,20 @@ function sanitizeShipmentWeightInput(value) {
       return false;
     })
     .join('');
+}
+
+function normalizeShipmentWeightValue(value) {
+  const sanitized =
+    sanitizeShipmentWeightInput(value).trim();
+
+  if (!isValidShipmentWeight(sanitized)) {
+    return sanitized;
+  }
+
+  const normalized =
+    Math.round((Number(sanitized) + Number.EPSILON) * 100) / 100;
+
+  return String(normalized);
 }
 
 function getRequestErrorMessage(defaultMessage) {
