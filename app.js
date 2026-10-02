@@ -2,7 +2,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbz7tPrVsKyZ85-ga8iplEC7
 const HUB_API_URL = 'https://script.google.com/macros/s/AKfycbyAHpUfM1RrPJbamCVcc5rGhUgRKoLRKSULBGnCNGLyCSaFU5lp7SX2Ge1Wwv9YEV5-Sg/exec';
 const SHARED_AUTH_TOKEN_KEY = 'tools501_google_id_token';
 const HUB_URL = '/hub/';
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 const TWO_FACTOR_CHECK_ENABLED = false;
 
 let authToken = null;
@@ -22,12 +22,14 @@ let activeListFilter = null;
 let shipmentSearchQuery = '';
 let shipmentSearchOpened = false;
 let shipmentPendingDelete = null;
+let shipmentSortMode = 'createdAt';
 let shipmentOptions = {
   units: [],
   hubs: [],
   crews: [],
   methods: [],
-  destinations: []
+  destinations: [],
+  categories: []
 };
 
 const REQUIRED_UI_LABEL_KEYS = [
@@ -42,6 +44,7 @@ const REQUIRED_UI_LABEL_KEYS = [
   'status',
   'deliveryPriority',
   'weightKg',
+  'categories',
   'comment',
   'createdByName',
   'updatedByName',
@@ -111,6 +114,7 @@ const REQUIRED_UI_LABEL_KEYS = [
   'deliveryPriorityForbidden',
   'weightKgRequired',
   'weightKgInvalid',
+  'categoriesRequired',
   'commentRequired',
   'commentLength'
 ];
@@ -147,6 +151,8 @@ const DELIVERY_PRIORITIES = [
 const DASHBOARD_ALL_VALUE = 'Всі';
 const API_TIMEOUT_MS = 30 * 1000;
 const TOKEN_EXPIRY_SAFETY_MS = 2 * 60 * 1000;
+const SHIPMENT_SORT_CREATED_AT = 'createdAt';
+const SHIPMENT_SORT_SENT_AT = 'sentAt';
 
 const DASHBOARD_FILTERS = [
   {
@@ -198,6 +204,12 @@ const shipmentSearchInput =
 
 const shipmentSearchCount =
   document.getElementById('shipmentSearchCount');
+
+const shipmentSortToggle =
+  document.getElementById('shipmentSortToggle');
+
+const shipmentSortPopover =
+  document.getElementById('shipmentSortPopover');
 
 const adminDashboard =
   document.getElementById('adminDashboard');
@@ -1017,15 +1029,71 @@ function getShipmentsVersion(items) {
   }, 0).toString();
 }
 
+function getShipmentDateTimestamp(value) {
+  const date = new Date(value);
+
+  return isNaN(date.getTime())
+    ? 0
+    : date.getTime();
+}
+
+function compareShipmentsByDeliveryDate(a, b) {
+  const sentA = getShipmentDateTimestamp(a.sentAtRaw);
+  const sentB = getShipmentDateTimestamp(b.sentAtRaw);
+
+  const isNewWithoutSentA =
+    !sentA &&
+    a.status === DEFAULT_SHIPMENT_STATUS;
+  const isNewWithoutSentB =
+    !sentB &&
+    b.status === DEFAULT_SHIPMENT_STATUS;
+
+  if (isNewWithoutSentA !== isNewWithoutSentB) {
+    return isNewWithoutSentA ? -1 : 1;
+  }
+
+  if (sentA !== sentB) {
+    if (!sentA) {
+      return 1;
+    }
+
+    if (!sentB) {
+      return -1;
+    }
+
+    return sentB - sentA;
+  }
+
+  return compareShipmentsByCreatedAt(a, b);
+}
+
+function compareShipmentsByCreatedAt(a, b) {
+  return getShipmentDateTimestamp(b.createdAtRaw) -
+         getShipmentDateTimestamp(a.createdAtRaw);
+}
+
+function sortShipments(items) {
+  const compare =
+    shipmentSortMode === SHIPMENT_SORT_SENT_AT
+      ? compareShipmentsByDeliveryDate
+      : compareShipmentsByCreatedAt;
+
+  return [...items].sort(compare);
+}
+
 function setUpdateNotice(hasUpdates) {
 
   if (hasUpdates) {
-    loadBtn.innerText = 'Є оновлення';
+    loadBtn.innerText = '↻';
+    loadBtn.setAttribute('title', 'Є оновлення');
+    loadBtn.setAttribute('aria-label', 'Є оновлення. Оновити список');
     loadBtn.classList.add('has-updates');
     return;
   }
 
-  loadBtn.innerText = 'Оновити';
+  loadBtn.innerText = '↻';
+  loadBtn.setAttribute('title', 'Оновити список');
+  loadBtn.setAttribute('aria-label', 'Оновити список');
   loadBtn.classList.remove('has-updates');
 }
 
@@ -1108,7 +1176,9 @@ function getShipmentValidationErrorMessage(error) {
     'hub length is invalid': uiLabels.hubLength,
     'sentAt is required': uiLabels.sentAtRequiredForStatus,
     'weightKg is required': uiLabels.weightKgRequired,
-    'weightKg is invalid': uiLabels.weightKgInvalid
+    'weightKg is invalid': uiLabels.weightKgInvalid,
+    'categories is required': uiLabels.categoriesRequired,
+    'comment length is invalid': uiLabels.commentLength
   };
 
   return messages[error] || error;
@@ -1196,6 +1266,61 @@ function buildOptionalOptions(options, selectedValue, emptyLabel) {
   `;
 }
 
+function parseShipmentCategories(value) {
+  if (Array.isArray(value)) {
+    return value
+      .map(item => String(item || '').trim())
+      .filter(Boolean);
+  }
+
+  return String(value || '')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+}
+
+function buildCategoryOptions(selectedValue = '') {
+  const selected = parseShipmentCategories(selectedValue);
+  const values = [...shipmentOptions.categories];
+
+  selected.forEach(category => {
+    if (!values.includes(category)) {
+      values.unshift(category);
+    }
+  });
+
+  return values
+    .map(category => {
+      const checked = selected.includes(category)
+        ? 'checked'
+        : '';
+
+      return `
+        <label class="category-option">
+          <input
+            type="checkbox"
+            value="${escapeHtml(category)}"
+            ${checked}
+          >
+
+          <span>${escapeHtml(category)}</span>
+        </label>
+      `;
+    })
+    .join('');
+}
+
+function getSelectedCategories(container) {
+  if (!container) {
+    return [];
+  }
+
+  return Array.from(
+    container.querySelectorAll('input[type="checkbox"]:checked')
+  ).map(input => input.value.trim())
+    .filter(Boolean);
+}
+
 function populateSelect(select, options, placeholder) {
 
   select.innerHTML = `
@@ -1225,6 +1350,9 @@ function validateUiLabels(labels) {
 
 function applyUiLabels() {
 
+  document.getElementById('categoriesLabel').innerText =
+    uiLabels.categories;
+
   document.getElementById('comment').placeholder =
     uiLabels.comment;
 
@@ -1246,6 +1374,11 @@ function applyUiLabels() {
   shipmentSearchToggle.setAttribute(
     'aria-label',
     uiLabels.searchByDestinationAria
+  );
+
+  shipmentSearchToggle.setAttribute(
+    'title',
+    uiLabels.searchByDestination
   );
 
   shipmentSearchInput.placeholder =
@@ -1330,6 +1463,8 @@ function populateCreateOptions() {
     uiLabels.chooseDestination
   );
 
+  document.getElementById('categories').innerHTML =
+    buildCategoryOptions();
 }
 
 async function loadShipmentOptions() {
@@ -1350,7 +1485,8 @@ function applyShipmentOptions(data) {
     hubs: data.hubs || [],
     crews: data.crews || [],
     methods: data.methods || [],
-    destinations: data.destinations || []
+    destinations: data.destinations || [],
+    categories: data.categories || []
   };
 
   if (!validateUiLabels(data.labels)) {
@@ -1418,6 +1554,9 @@ async function createShipment() {
   const weightInput = document.getElementById('weightKg');
   const weightKg =
     normalizeShipmentWeightValue(weightInput.value);
+  const categories = getSelectedCategories(
+    document.getElementById('categories')
+  );
   const comment = document.getElementById('comment').value.trim();
 
   if (!unit) {
@@ -1454,12 +1593,15 @@ async function createShipment() {
 
   weightInput.value = weightKg;
 
-  if (!comment) {
-    showToast(uiLabels.commentRequired);
+  if (!categories.length) {
+    showToast(uiLabels.categoriesRequired);
     return;
   }
 
-  if (!validateLength(comment, 3, 1000)) {
+  if (
+    comment &&
+    !validateLength(comment, 3, 1000)
+  ) {
     showToast(uiLabels.commentLength);
 
     return;
@@ -1477,6 +1619,7 @@ async function createShipment() {
         unit,
         destination,
         weightKg,
+        categories,
         comment
       }
     );
@@ -1489,6 +1632,11 @@ async function createShipment() {
     document.getElementById('unit').value = '';
     document.getElementById('destination').value = '';
     document.getElementById('weightKg').value = '';
+    document
+      .querySelectorAll('#categories input[type="checkbox"]')
+      .forEach(input => {
+        input.checked = false;
+      });
     document.getElementById('comment').value = '';
 
     shipmentForm.classList.remove('form-open');
@@ -1548,7 +1696,7 @@ async function loadShipments() {
 
 function applyShipments(items) {
 
-  allShipments = items || [];
+  allShipments = sortShipments(items || []);
 
   lastKnownShipmentsVersion =
     getShipmentsVersion(allShipments);
@@ -1606,11 +1754,9 @@ function applyIncrementalShipmentChanges(
 
   if (!appliedIds.size) {
     if (hasDeletions) {
-      allShipments = Array.from(itemsById.values())
-        .sort((a, b) => {
-          return new Date(b.createdAtRaw) -
-                 new Date(a.createdAtRaw);
-        });
+      allShipments = sortShipments(
+        Array.from(itemsById.values())
+      );
 
       renderIncrementalShipmentDeletions(deletedIds);
       renderDashboard();
@@ -1620,11 +1766,9 @@ function applyIncrementalShipmentChanges(
     return;
   }
 
-  allShipments = Array.from(itemsById.values())
-    .sort((a, b) => {
-      return new Date(b.createdAtRaw) -
-             new Date(a.createdAtRaw);
-    });
+  allShipments = sortShipments(
+    Array.from(itemsById.values())
+  );
 
   if (hasDeletions) {
     renderIncrementalShipmentDeletions(deletedIds);
@@ -2131,6 +2275,54 @@ function renderVisibleShipments() {
   renderShipments(searchFilteredItems);
 }
 
+function updateShipmentSortUi() {
+  const isCustomSort =
+    shipmentSortMode === SHIPMENT_SORT_SENT_AT;
+
+  shipmentSortToggle.classList.toggle(
+    'is-active',
+    isCustomSort
+  );
+
+  shipmentSortPopover
+    .querySelectorAll('.shipment-sort-option')
+    .forEach(button => {
+      const isSelected =
+        button.dataset.sortMode === shipmentSortMode;
+
+      button.classList.toggle('is-selected', isSelected);
+      button.setAttribute(
+        'aria-checked',
+        isSelected ? 'true' : 'false'
+      );
+    });
+}
+
+function setShipmentSortPopoverOpened(opened) {
+  shipmentSortPopover.classList.toggle(
+    'hidden',
+    !opened
+  );
+
+  shipmentSortToggle.classList.toggle(
+    'popover-open',
+    opened
+  );
+
+  shipmentSortToggle.setAttribute(
+    'aria-expanded',
+    opened ? 'true' : 'false'
+  );
+}
+
+function applyShipmentSortMode(mode) {
+  shipmentSortMode = mode;
+  allShipments = sortShipments(allShipments);
+  setShipmentSortPopoverOpened(false);
+  updateShipmentSortUi();
+  renderVisibleShipments();
+}
+
 function setShipmentSearchOpened(opened) {
 
   shipmentSearchOpened = opened;
@@ -2518,6 +2710,26 @@ function renderDetailsValue(value) {
   return escapeHtml(normalized);
 }
 
+function renderDetailsComment(value) {
+  const normalized = String(value || '').trim();
+
+  if (!normalized) {
+    return `
+      <div>
+        <b>${escapeHtml(uiLabels.comment)}:</b> ${renderDetailsValue(normalized)}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="details-comment">
+      <b>${escapeHtml(uiLabels.comment)}:</b>
+
+      <div class="details-comment-text">${escapeHtml(normalized)}</div>
+    </div>
+  `;
+}
+
 function renderDetailsView(item) {
 
   const editButton = canEditShipment(item)
@@ -2601,12 +2813,12 @@ function renderDetailsView(item) {
     <div>
       <b>ID:</b> ${escapeHtml(item.id)}
     </div>
-  
-    <div class="details-comment">
-      <b>${escapeHtml(uiLabels.comment)}:</b>
 
-      <div class="details-comment-text">${renderDetailsValue(item.comment)}</div>
+    <div>
+      <b>${escapeHtml(uiLabels.categories)}:</b> ${renderDetailsValue(item.categories)}
     </div>
+  
+    ${renderDetailsComment(item.comment)}
 
     <div>
       <b>${escapeHtml(uiLabels.weightKg)}:</b> ${renderDetailsValue(item.weightKg)}
@@ -2735,6 +2947,14 @@ function renderEditForm(item) {
         </select>
       </div>
 
+      <label class="edit-select-field">
+        <span>${escapeHtml(uiLabels.categories)}</span>
+
+        <div class="category-options edit-categories">
+          ${buildCategoryOptions(item.categories)}
+        </div>
+      </label>
+
       <textarea
         class="edit-comment"
         placeholder="${escapeHtml(uiLabels.comment)}"
@@ -2795,6 +3015,9 @@ function getEditData(details) {
       details.querySelector('.edit-weight-kg').value
     ),
     status: details.querySelector('.edit-status').value,
+    categories: getSelectedCategories(
+      details.querySelector('.edit-categories')
+    ),
     comment: details.querySelector('.edit-comment').value.trim()
   };
 }
@@ -2820,6 +3043,7 @@ function getItemEditData(item) {
       ),
     weightKg: String(item.weightKg || '').trim(),
     status: String(item.status || ''),
+    categories: parseShipmentCategories(item.categories),
     comment: String(item.comment || '').trim()
   };
 }
@@ -2943,6 +3167,11 @@ function validateEditData(data) {
     return false;
   }
 
+  if (!data.categories.length) {
+    showToast(uiLabels.categoriesRequired);
+    return false;
+  }
+
   if (!data.destination) {
     showToast(uiLabels.destinationRequired);
     return false;
@@ -2954,12 +3183,10 @@ function validateEditData(data) {
     return false;
   }
 
-  if (!data.comment) {
-    showToast(uiLabels.commentRequired);
-    return false;
-  }
-
-  if (!validateLength(data.comment, 3, 1000)) {
+  if (
+    data.comment &&
+    !validateLength(data.comment, 3, 1000)
+  ) {
     showToast(uiLabels.commentLength);
 
     return false;
@@ -3615,6 +3842,23 @@ document
 
 loadBtn.addEventListener('click', reloadAppData);
 
+shipmentSortToggle.addEventListener('click', event => {
+  event.stopPropagation();
+  setShipmentSortPopoverOpened(
+    shipmentSortPopover.classList.contains('hidden')
+  );
+});
+
+shipmentSortPopover.addEventListener('click', event => {
+  const button = event.target.closest('.shipment-sort-option');
+
+  if (!button) {
+    return;
+  }
+
+  applyShipmentSortMode(button.dataset.sortMode);
+});
+
 shipmentSearchToggle.addEventListener(
   'click',
   toggleShipmentSearch
@@ -3706,9 +3950,26 @@ deleteShipmentModal.addEventListener('click', event => {
 document.addEventListener('keydown', event => {
   if (
     event.key === 'Escape' &&
+    !shipmentSortPopover.classList.contains('hidden')
+  ) {
+    setShipmentSortPopoverOpened(false);
+    return;
+  }
+
+  if (
+    event.key === 'Escape' &&
     !deleteShipmentModal.classList.contains('hidden')
   ) {
     closeDeleteShipmentModal();
+  }
+});
+
+document.addEventListener('click', event => {
+  if (
+    !shipmentSortPopover.classList.contains('hidden') &&
+    !event.target.closest('.shipment-sort-menu')
+  ) {
+    setShipmentSortPopoverOpened(false);
   }
 });
 
@@ -3758,4 +4019,5 @@ document
     renewSession();
   });
 
+updateShipmentSortUi();
 initializeAuth();
