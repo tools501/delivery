@@ -1544,11 +1544,15 @@ textarea:focus {
   min-width: 0;
 }
 
-.dashboard-bar-fill.status-success {
+.dashboard-bar-fill.status-success,
+.delivery-calendar-entry.status-success,
+.delivery-calendar-status-segment.status-success {
   background: #6fb982;
 }
 
-.dashboard-bar-fill.status-delivered {
+.dashboard-bar-fill.status-delivered,
+.delivery-calendar-entry.status-delivered,
+.delivery-calendar-status-segment.status-delivered {
   background: #6fb7ba;
 }
 
@@ -1556,11 +1560,15 @@ textarea:focus {
   background: #9c8fd0;
 }
 
-.dashboard-bar-fill.status-warning {
+.dashboard-bar-fill.status-warning,
+.delivery-calendar-entry.status-warning,
+.delivery-calendar-status-segment.status-warning {
   background: #eadb82;
 }
 
-.dashboard-bar-fill.status-danger {
+.dashboard-bar-fill.status-danger,
+.delivery-calendar-entry.status-danger,
+.delivery-calendar-status-segment.status-danger {
   background: #d47a7a;
 }
 
@@ -1582,6 +1590,641 @@ textarea:focus {
   background: #fafafa;
 
   border-radius: 12px;
+}
+
+.dashboard-mode-switch {
+  display: inline-flex;
+  max-width: 100%;
+  gap: 3px;
+  margin-bottom: 12px;
+  padding: 3px;
+  background: #f4f4f4;
+  border: 1px solid #ececec;
+  border-radius: 12px;
+}
+
+.dashboard-mode-switch button {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: #555;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.dashboard-mode-switch button[aria-pressed="true"] {
+  background: #fff;
+  color: #222;
+  border-color: #e5e5e5;
+  box-shadow: 0 1px 2px #0001;
+}
+
+.delivery-calendar-controls {
+  --calendar-control-size: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.delivery-calendar-period {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.delivery-calendar-arrow,
+.delivery-calendar-controls .delivery-calendar-icon-button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 var(--calendar-control-size);
+  width: var(--calendar-control-size);
+  min-height: var(--calendar-control-size);
+  padding: 0;
+  border: 1px solid #dedede;
+  border-radius: 8px;
+  background: #fafafa;
+  color: #333;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.delivery-calendar-arrow:disabled {
+  opacity: .45;
+  cursor: default;
+}
+
+.delivery-calendar-icon-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.delivery-calendar-date-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.delivery-calendar-range-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  max-width: 100%;
+  min-height: var(--calendar-control-size);
+  padding: 3px 7px;
+  border: 1px solid #dedede;
+  border-radius: 8px;
+  background: #fafafa;
+  color: #333;
+  font: inherit;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  transition: background-color .15s, border-color .15s;
+}
+
+.delivery-calendar-date-picker.is-editing .delivery-calendar-range-button {
+  visibility: hidden;
+}
+
+.delivery-calendar-date-picker > .delivery-calendar-date-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 3px 5px;
+  border: 1px solid #dedede;
+  border-radius: 8px;
+  background: #fff;
+  color: #222;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.delivery-calendar-date-input::-webkit-calendar-picker-indicator {
+  margin: 0;
+  padding: 0;
+}
+
+.delivery-calendar-action {
+  min-height: 40px;
+  padding: 6px 10px;
+  border: 1px solid #dedede;
+  border-radius: 10px;
+  background: #fafafa;
+  color: #333;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.delivery-calendar-filter {
+  flex: none;
+  margin-bottom: 8px;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.delivery-calendar-filter summary {
+  width: fit-content;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid #dedede;
+  border-radius: 10px;
+  background: #fafafa;
+  color: #333;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.delivery-calendar-filter.is-filtered summary {
+  background: #eaf1fb;
+  border-color: #cfdbed;
+}
+
+.delivery-calendar-filter-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 6px;
+  max-height: min(30vh, 180px);
+  overflow: auto;
+  padding: 6px 0 2px;
+}
+
+.delivery-calendar-filter-content .delivery-calendar-action {
+  min-height: 34px;
+  font-size: 12px;
+}
+
+.delivery-calendar-filter-content button:disabled {
+  opacity: .55;
+  cursor: default;
+}
+
+.delivery-calendar-category-options {
+  display: flex;
+  flex: 1 1 180px;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
+.delivery-calendar-category-option {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 7px;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.delivery-calendar-category-option input[type="checkbox"] {
+  flex: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.delivery-calendar-empty {
+  margin: 0 0 8px;
+  color: #595959;
+  font-size: 13px;
+}
+
+.delivery-calendar-scroll {
+  max-width: 100%;
+  max-height: min(60vh, 520px);
+  overflow: hidden auto;
+  border: 1px solid #e7e7e7;
+  border-radius: 12px;
+}
+
+.delivery-calendar-table {
+  --calendar-font-reduction: 0px;
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 11px;
+}
+
+.delivery-calendar-destination {
+  width: 21%;
+}
+
+.delivery-calendar-table th,
+.delivery-calendar-table td {
+  padding: 3px;
+  border-right: 1px solid #ececec;
+  border-bottom: 1px solid #ececec;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.delivery-calendar-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-block: 7px;
+  background: #f6f6f6;
+  color: #222;
+  font-variant-numeric: tabular-nums;
+}
+
+.delivery-calendar-table th:first-child {
+  text-align: left;
+}
+
+.delivery-calendar-table tbody th {
+  padding: 6px 4px;
+  background: #fafafa;
+  color: #333;
+  font-weight: 600;
+}
+
+.delivery-calendar-destination-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.delivery-calendar-table thead .is-today {
+  background: #eaf1fb;
+}
+
+.delivery-calendar-entry {
+  display: block;
+  padding: 5px;
+  border-radius: 6px;
+  background: #f4f4f4;
+  color: #181818;
+  font-size: calc(11px - var(--calendar-font-reduction));
+  line-height: 1.35;
+}
+
+.delivery-calendar-entry + .delivery-calendar-entry {
+  margin-top: 4px;
+}
+
+.delivery-calendar-category {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.delivery-calendar-category:first-of-type {
+  margin-top: 2px;
+}
+
+.delivery-calendar-hub {
+  display: block;
+  margin-top: 4px;
+  padding-top: 3px;
+  border-top: 1px solid #0002;
+  overflow-wrap: anywhere;
+}
+
+.delivery-calendar-cell-button {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: 25px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: #f7f7f7;
+  color: #222;
+  font: inherit;
+  cursor: pointer;
+}
+
+.delivery-calendar-cell-button:hover {
+  background: #ededed;
+}
+
+.delivery-calendar-cell-button:focus-visible {
+  outline: 2px solid #245baf;
+  outline-offset: -2px;
+}
+
+.delivery-calendar-preview {
+  position: relative;
+  display: block;
+  min-height: inherit;
+  padding: 7px 2px 3px;
+  border-radius: inherit;
+}
+
+.delivery-calendar-status-bar {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 5px 5px 0 0;
+}
+
+.delivery-calendar-markers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 3px;
+  font-size: calc(11px - var(--calendar-font-reduction));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.delivery-calendar-status-segment {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: #777;
+}
+
+.delivery-calendar-category-summary {
+  display: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(10px - var(--calendar-font-reduction));
+  font-weight: 500;
+}
+
+.delivery-calendar-cell-entries {
+  display: none;
+  text-align: left;
+}
+
+.delivery-calendar-modal-open {
+  overflow: hidden;
+}
+
+.delivery-calendar-expanded {
+  position: fixed;
+  border: 0;
+  background: #fff;
+  color: #222;
+}
+
+.delivery-calendar-expanded {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  overflow: hidden;
+}
+
+.delivery-calendar-expanded[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.delivery-calendar-expanded #deliveryCalendarExpand {
+  display: none;
+}
+
+.delivery-calendar-expanded .delivery-calendar {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.delivery-calendar-expanded .delivery-calendar-scroll {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
+.delivery-calendar-expanded .delivery-calendar-destination {
+  width: 120px;
+}
+
+.delivery-calendar-dialog-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.delivery-calendar-dialog-header h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+
+.delivery-calendar-dialog-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.delivery-calendar-day-switch {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #dedede;
+  border-radius: 10px;
+  background: #f4f4f4;
+}
+
+.delivery-calendar-day-switch button {
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: #555;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.delivery-calendar-day-switch button[aria-pressed="true"] {
+  background: #fff;
+  border-color: #ddd;
+  color: #222;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #deliveryCalendarHome > .delivery-calendar:not(.hidden) {
+    animation: deliveryCalendarAppear 180ms ease-out;
+  }
+
+  .delivery-calendar-expanded[open] {
+    animation: deliveryCalendarFadeIn 160ms ease-out;
+  }
+}
+
+@keyframes deliveryCalendarAppear {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes deliveryCalendarFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@media (max-width: 1200px) {
+  .delivery-calendar-table {
+    --calendar-font-reduction: 1px;
+  }
+}
+
+@media (max-width: 1024px) {
+  .delivery-calendar-expanded .delivery-calendar-entry {
+    font-size: calc(10px - var(--calendar-font-reduction));
+  }
+}
+
+@media (min-width: 720px) {
+  .delivery-calendar-category-summary {
+    display: block;
+  }
+}
+
+@media (max-width: 720px) and (orientation: portrait) {
+  #deliveryCalendarExpand {
+    display: none;
+  }
+}
+
+@media (orientation: landscape), (min-width: 900px) {
+  .delivery-calendar-expanded .delivery-calendar-preview {
+    display: none;
+  }
+
+  .delivery-calendar-expanded .delivery-calendar-cell-entries {
+    display: block;
+  }
+}
+
+@media (max-width: 600px) {
+  .dashboard-mode-switch {
+    display: flex;
+  }
+
+  .dashboard-mode-switch button {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 40px;
+    padding-inline: 6px;
+  }
+
+  .delivery-calendar-controls {
+    --calendar-control-size: 40px;
+  }
+
+  .delivery-calendar-period {
+    font-size: 12px;
+  }
+
+  .delivery-calendar-action {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+
+  .delivery-calendar-destination {
+    width: 23%;
+  }
+
+  .delivery-calendar-expanded .delivery-calendar-destination {
+    width: 80px;
+  }
+
+  .delivery-calendar-table thead th {
+    padding-inline: 1px;
+    font-size: 10px;
+  }
+
+  .delivery-calendar-table thead th:first-child {
+    padding-left: 6px;
+  }
+
+  .delivery-calendar-table td {
+    padding: 2px;
+  }
+
+  .delivery-calendar-cell-button {
+    min-height: 30px;
+    font-size: 10px;
+  }
+
+  .delivery-calendar-preview {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 3px 2px;
+  }
+
+  .delivery-calendar-status-bar {
+    height: 100%;
+    border-radius: inherit;
+  }
+
+  .delivery-calendar-markers {
+    position: relative;
+    z-index: 1;
+    font-size: calc(10px - var(--calendar-font-reduction));
+  }
+}
+
+@media (max-width: 360px) {
+  .delivery-calendar-range-button {
+    padding-inline: 4px;
+    font-size: 11px;
+  }
+
+  .delivery-calendar-table thead time {
+    font-size: 9px;
+    white-space: nowrap;
+  }
+
+  .delivery-calendar-table.is-two-weeks thead time {
+    white-space: normal;
+  }
 }
 
 .shipments-header {
