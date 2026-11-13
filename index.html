@@ -142,6 +142,12 @@
 
       <section id="adminDashboard" class="admin-dashboard hidden">
 
+        <div id="dashboardModeSwitch" class="dashboard-mode-switch hidden">
+          <button id="dashboardStatisticsButton" type="button" aria-controls="dashboardStatistics" aria-pressed="true"></button>
+          <button id="deliveryCalendarButton" type="button" aria-controls="deliveryCalendar" aria-pressed="false"></button>
+        </div>
+
+        <div id="dashboardStatistics">
         <div class="dashboard-header">
 
           <div class="dashboard-title">
@@ -241,6 +247,58 @@
 
           <span>Показати нульові</span>
         </label>
+        </div>
+
+        <div id="deliveryCalendarHome">
+        <div id="deliveryCalendar" class="delivery-calendar hidden" aria-labelledby="deliveryCalendarButton">
+          <div class="delivery-calendar-controls">
+            <div class="delivery-calendar-period">
+              <button id="deliveryCalendarPrevious" class="delivery-calendar-arrow" type="button">‹</button>
+              <div id="deliveryCalendarDatePicker" class="delivery-calendar-date-picker">
+                <button id="deliveryCalendarRangeButton" class="delivery-calendar-range-button" type="button" aria-controls="deliveryCalendarEnd" aria-expanded="false">
+                  <span id="deliveryCalendarRange" aria-live="polite"></span>
+                  <span aria-hidden="true">▾</span>
+                </button>
+                <input id="deliveryCalendarEnd" class="delivery-calendar-date-input hidden" type="date">
+              </div>
+              <button id="deliveryCalendarNext" class="delivery-calendar-arrow" type="button">›</button>
+            </div>
+            <button id="deliveryCalendarExpand" class="delivery-calendar-action delivery-calendar-icon-button" type="button" aria-haspopup="dialog" aria-controls="deliveryCalendarExpanded">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M9 4H4v5m11-5h5v5M4 15v5h5m11-5v5h-5" />
+              </svg>
+            </button>
+          </div>
+          <details id="deliveryCalendarCategoryFilter" class="delivery-calendar-filter hidden">
+            <summary id="deliveryCalendarCategorySummary"></summary>
+            <div class="delivery-calendar-filter-content">
+              <button id="deliveryCalendarAllCategories" class="delivery-calendar-action" type="button"></button>
+              <div id="deliveryCalendarCategoryOptions" class="delivery-calendar-category-options"></div>
+            </div>
+          </details>
+          <p id="deliveryCalendarEmpty" class="delivery-calendar-empty hidden"></p>
+          <div id="deliveryCalendarScroll" class="delivery-calendar-scroll" tabindex="0" role="region" aria-labelledby="deliveryCalendarButton">
+            <table class="delivery-calendar-table" aria-labelledby="deliveryCalendarButton">
+              <colgroup><col class="delivery-calendar-destination"><col span="7"></colgroup>
+              <thead id="deliveryCalendarHead"></thead>
+              <tbody id="deliveryCalendarBody"></tbody>
+            </table>
+          </div>
+        </div>
+        </div>
+
+        <dialog id="deliveryCalendarExpanded" class="delivery-calendar-expanded" aria-labelledby="deliveryCalendarExpandedTitle">
+          <div class="delivery-calendar-dialog-header">
+            <h2 id="deliveryCalendarExpandedTitle"></h2>
+            <div class="delivery-calendar-dialog-actions">
+              <div id="deliveryCalendarDaySwitch" class="delivery-calendar-day-switch hidden" role="group" aria-labelledby="deliveryCalendarExpandedTitle">
+                <button id="deliveryCalendar7Days" type="button" aria-pressed="true"></button>
+                <button id="deliveryCalendar14Days" type="button" aria-pressed="false"></button>
+              </div>
+              <button id="deliveryCalendarCollapse" class="delivery-calendar-action" type="button"></button>
+            </div>
+          </div>
+        </dialog>
 
       </section>
 
@@ -406,7 +464,7 @@
 
       </div>
 
-      <div id="listFilterNotice" class="list-filter-notice hidden">
+      <div id="listFilterNotice" class="list-filter-notice hidden" tabindex="-1">
 
         <span id="listFilterText"></span>
 
@@ -557,6 +615,7 @@
 
   <script src="utils.js"></script>
   <script src="dashboard_export.js"></script>
+  <script src="delivery_calendar.js"></script>
   <script src="app.js"></script>
 
 </body>
