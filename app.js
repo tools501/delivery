@@ -2,7 +2,7 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbz7tPrVsKyZ85-ga8iplEC7
 const HUB_API_URL = 'https://script.google.com/macros/s/AKfycbyAHpUfM1RrPJbamCVcc5rGhUgRKoLRKSULBGnCNGLyCSaFU5lp7SX2Ge1Wwv9YEV5-Sg/exec';
 const SHARED_AUTH_TOKEN_KEY = 'tools501_google_id_token';
 const HUB_URL = '/hub/';
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.3.0';
 const TWO_FACTOR_CHECK_ENABLED = false;
 
 let authToken = null;
@@ -214,6 +214,22 @@ const shipmentSortPopover =
 const adminDashboard =
   document.getElementById('adminDashboard');
 
+const deliveryCalendar = typeof createDeliveryCalendar === 'function' ? createDeliveryCalendar({
+  isAllowed: isAdmin,
+  getShipments: () => allShipments,
+  getDestinations: () => shipmentOptions.destinations,
+  getCategoryOptions: () => shipmentOptions.categories,
+  getStatusClass,
+  renderStatistics: renderDashboard,
+  showCellShipments: applyCalendarListFilter,
+  onCategoryChange: () => {
+    if (activeListFilter?.type === 'calendarCell') renderVisibleShipments();
+  },
+  allowedStatuses: new Set(SHIPMENT_STATUSES.filter(
+    status => !DELETABLE_SHIPMENT_STATUSES.includes(status)
+  ))
+}) : null;
+
 const dashboardFrom =
   document.getElementById('dashboardFrom');
 
@@ -379,6 +395,7 @@ function isTokenActive(token) {
 
 function expireSession() {
 
+  deliveryCalendar?.closeOverlays();
   sessionExpired = true;
   authToken = null;
   clearInterval(sessionCountdownTimer);
@@ -952,6 +969,7 @@ async function api(
     result.error === 'AUTH_REQUIRED'
   ) {
 
+    deliveryCalendar?.closeOverlays();
     authToken = null;
     clearSharedAuthToken();
 
@@ -969,6 +987,7 @@ let toastTimeout = null;
 
 function showLoginScreen() {
 
+  deliveryCalendar?.closeOverlays();
   document.getElementById('app')
     .classList.add('hidden');
 
@@ -1496,6 +1515,7 @@ function applyShipmentOptions(data) {
   uiLabels = data.labels;
 
   applyUiLabels();
+  deliveryCalendar?.configure(uiLabels, data.calendarTimeZone);
   populateCreateOptions();
 }
 
@@ -2201,8 +2221,10 @@ function updateListFilterNotice() {
     return;
   }
 
-  listFilterText.innerText =
-    `${uiLabels.listFilterPrefix}: ${activeListFilter.label}`;
+  const prefix = activeListFilter.type === 'calendarCell'
+    ? uiLabels.calendarListFilterPrefix
+    : uiLabels.listFilterPrefix;
+  listFilterText.innerText = `${prefix}: ${activeListFilter.label}`;
 
   listFilterNotice.classList.remove('hidden');
 }
@@ -2215,6 +2237,10 @@ function getVisibleShipments() {
 
   if (activeListFilter.type === 'dashboardTotal') {
     return filterDashboardShipments() || [];
+  }
+
+  if (activeListFilter.type === 'calendarCell') {
+    return deliveryCalendar?.getCellShipments(activeListFilter.destination, activeListFilter.day) || [];
   }
 
   return getDashboardGroupItems(
@@ -2406,6 +2432,20 @@ function clearDashboardListFilter() {
   renderVisibleShipments();
 }
 
+function applyCalendarListFilter(destination, day, dateLabel) {
+  if (!isAdmin()) return;
+
+  activeListFilter = { type: 'calendarCell', destination, day, label: `${destination} · ${dateLabel}` };
+  shipmentSearchQuery = '';
+  shipmentSearchInput.value = '';
+  renderVisibleShipments();
+  listFilterNotice.focus({ preventScroll: true });
+  document.querySelector('.shipments-header').scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'start'
+  });
+}
+
 function getDashboardBreakdown(items) {
 
   const groupKey = dashboardGroupBy.value;
@@ -2551,6 +2591,10 @@ function renderDashboard() {
     return;
   }
 
+  if (deliveryCalendar?.refresh()) {
+    return;
+  }
+
   const filteredItems = filterDashboardShipments();
 
   if (!filteredItems) {
@@ -2605,6 +2649,9 @@ function renderDashboard() {
 }
 
 function setupAdminDashboard() {
+
+  deliveryCalendar?.reset();
+  if (activeListFilter?.type === 'calendarCell') activeListFilter = null;
 
   if (!isAdmin()) {
     adminDashboard.classList.add('hidden');
